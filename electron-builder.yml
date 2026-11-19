@@ -13,10 +13,11 @@ protocols:
 # --publish never, and must be uploaded to the GitHub release alongside the
 # artifacts — a release missing latest.yml leaves every Windows install
 # stranded on its installed version.
+# FTbot: updates come only from FTbot's own releases, never from OpenMausBot's.
 publish:
   - provider: github
-    owner: milind-soni
-    repo: OpenMausBot
+    owner: jihan-socool
+    repo: FTbot
 
 directories:
   buildResources: build
