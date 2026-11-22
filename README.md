@@ -50,14 +50,24 @@ the whole computer and hand work to the others. You use FTbot from your Mac or y
 
 ## Install on a Mac
 
-FTbot is built with GitHub Actions; no Apple Developer account is needed.
+FTbot is built with GitHub Actions; no Apple Developer account is needed. It runs on Macs with Apple silicon (M1 or newer).
 
-1. Open this repository's **Actions** tab, choose **Build FTbot for Mac**, then **Run workflow**.
-2. When it finishes, download **FTbot-mac-arm64** from the run and open the DMG (Apple silicon Macs).
-3. Drag the app to Applications. The first time, right-click it and choose **Open**.
-4. When asked, allow **Accessibility** and **Screen Recording** so the main bot can control the Mac.
+1. Open this repository's **Actions** tab, choose **Build FTbot for Mac**, then open the newest green run (or press
+   **Run workflow** for a fresh one).
+2. At the bottom of the run, under **Artifacts**, download **FTbot-mac-arm64**, then double-click the zip to get the DMG.
+3. Open the DMG and drag **FTbot** to **Applications**.
+4. Open FTbot from Applications. Because the app is not notarized by Apple, macOS stops it the first time:
+   - **macOS 15 or newer:** open **System Settings → Privacy & Security**, scroll down to the message about FTbot and
+     click **Open Anyway**, then confirm.
+   - **macOS 14:** right-click FTbot in Applications, choose **Open**, then **Open** again.
+   - If macOS says FTbot "is damaged", run this once in Terminal, then open it again:
+     `xattr -dr com.apple.quarantine /Applications/FTbot.app`
+5. In FTbot, press **Connect an AI** and sign in with an AI account you already use (you sign in on that company's own
+   website), or add an API key. Your main bot is ready once one is connected.
+6. When the main bot first needs the Mac itself, allow **Accessibility** and **Screen Recording** for FTbot when asked.
 
-The app is not notarized by Apple, so macOS may ask for these permissions again after you install a new build.
+Each new build is a different app to macOS, so after installing one it may ask for these permissions again. FTbot does
+not update itself yet: to update, download the newest build and drag it to Applications again. Your bots and chats stay.
 
 ## Use it from your iPhone
 

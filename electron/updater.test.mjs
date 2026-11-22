@@ -16,7 +16,10 @@ const CLOUD = "https://home-7f3k2.fly.dev";
 const OTHER = "https://bots.example.test";
 const OWN = "https://omb-c-a.fly.dev";
 
-const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "" }));
+const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "", updates: true }));
+
+// FTbot ships with in-app updates off; these tests drive the updater as it runs once they are turned on.
+vi.mock("./ftbot.mjs", () => ({ FTBOT_MAUSBOT_CLOUD: false, get FTBOT_IN_APP_UPDATES() { return fixture.updates; } }));
 
 vi.mock("electron", () => ({
   app: { isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn() },
@@ -122,6 +125,7 @@ const settle = async () => {
 };
 
 beforeEach(() => {
+  fixture.updates = true;
   fixture.home = mkdtempSync(join(tmpdir(), "omb-updater-home-"));
   localOriginModule.setLocalOrigin(LOCAL);
   vi.useFakeTimers();
@@ -339,6 +343,23 @@ it("downloads an update by itself: the first check after launch starts it, and n
   const statuses = local.webContents.send.mock.calls.map(([, state]) => state.status);
   expect(statuses).not.toContain("available");
   expect(statuses.at(-1)).toBe("downloaded");
+});
+
+it("FTbot: with in-app updates off, a packaged app never checks for one and shows no update notice", async () => {
+  fixture.updates = false;
+  const rule = mainRule();
+  const local = page(LOCAL);
+  rule.show(local);
+  const { updater, autoUpdater } = await load(rule.pageAllowed);
+  updater.attachUpdaterWindow(rule.window);
+  updater.startUpdater();
+
+  await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+  await settle();
+
+  expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
+  const statuses = local.webContents.send.mock.calls.map(([, state]) => state.status);
+  expect(statuses.filter((status) => status && status !== "idle")).toEqual([]);
 });
 
 it("My Cloud's page reads and drives the update channels, and another server's page is refused", async () => {
