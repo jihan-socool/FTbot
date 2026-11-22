@@ -155,7 +155,7 @@ async function chiefJob(test: (f: any) => Promise<void>) {
     const restart = async (signal: NodeJS.Signals, extraEnv: NodeJS.ProcessEnv = {}) => {
       events?.close();
       await waitForExit(server, { signal });
-      const env = { ...verificationServerEnvironment(parentEnv, dataDir, Number(new URL(url).port)), ...extraEnv };
+      const env = { ...verificationServerEnvironment(parentEnv, dataDir, Number(new URL(url).port)), ...extraEnv, OMB_TEST_ANY_BOT_THIS_COMPUTER: "1" };
       const log = openSync(session.info.logPath, "a", 0o600);
       server = spawn(process.execPath, verificationServerArgs(env), { cwd: ROOT, env, stdio: ["ignore", log, log] });
       restarted = true;

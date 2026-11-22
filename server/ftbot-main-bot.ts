@@ -11,6 +11,12 @@ type MainBotCandidate = { id: string; name: string; chiefOfStaff?: boolean; move
 
 export const FTBOT_MAIN_ONLY_CODE = "ftbot_main_bot_only";
 
+/** Test servers only: OpenMausBot's full-server tests drive this computer with ordinary bots, so they set
+ * OMB_TEST_ANY_BOT_THIS_COMPUTER=1 to keep testing that machinery. The app never sets it. */
+export function anyBotUsesThisComputerForTests(): boolean {
+  return process.env.OMB_TEST_ANY_BOT_THIS_COMPUTER === "1";
+}
+
 /** Whether this bot is the main bot, the only one allowed to control this computer. */
 export function isMainBot(bot: MainBotCandidate | null | undefined): boolean {
   return Boolean(bot?.defaultBot) && chiefLevel(bot);
@@ -23,7 +29,7 @@ export function mainBotOf<T extends MainBotCandidate>(bots: readonly T[]): T | u
 
 /** Why this bot may not control this computer, in words for the bot; null for the main bot. */
 export function hostComputerRefusal(bot: MainBotCandidate | null | undefined, bots: readonly MainBotCandidate[]): string | null {
-  if (!bot || isMainBot(bot)) return null;
+  if (!bot || isMainBot(bot) || anyBotUsesThisComputerForTests()) return null;
   const main = mainBotOf(bots);
   if (!main) {
     return `Only the main bot may control this computer, and none is set up, so ${bot.name} cannot use the desktop or other apps. ` +

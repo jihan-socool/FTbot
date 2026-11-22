@@ -8,7 +8,10 @@ const shopper = { id: "shopper", name: "Shopper" };
 const chief = { id: "chief", name: "Chief", chiefOfStaff: true };
 const bots = [shopper, main, chief];
 
-afterEach(() => readTeamRolesWith(() => null));
+afterEach(() => {
+  readTeamRolesWith(() => null);
+  delete process.env.OMB_TEST_ANY_BOT_THIS_COMPUTER;
+});
 
 describe("FTbot main bot", () => {
   it("is the person's default bot, not a Chief of Staff or an ordinary bot", () => {
@@ -45,6 +48,15 @@ describe("FTbot host computer rule", () => {
       expect(refusal).toContain("own browser");
       expect(hostComputerNote(bot, bots)).toBe(` ${refusal}`);
     }
+  });
+
+  it("lets any bot through only on a test server that asks for the original behaviour", () => {
+    process.env.OMB_TEST_ANY_BOT_THIS_COMPUTER = "1";
+    expect(hostComputerRefusal(shopper, bots)).toBeNull();
+    process.env.OMB_TEST_ANY_BOT_THIS_COMPUTER = "true";
+    expect(hostComputerRefusal(shopper, bots)).toContain("Only Mia");
+    delete process.env.OMB_TEST_ANY_BOT_THIS_COMPUTER;
+    expect(hostComputerRefusal(shopper, bots)).toContain("Only Mia");
   });
 
   it("refuses every bot when no main bot is set up", () => {

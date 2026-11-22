@@ -69,6 +69,7 @@ async function fixture(test: (f: any) => Promise<void>, { thisComputer = false }
         ...verificationServerEnvironment({ FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_RELEASE: release }, dataDir, Number(new URL(url).port)),
         ...(withBrowser ? { OMB_AGENT_BROWSER_PATH: browser } : {}),
         ...(thisComputer ? { OMB_TEST_DESKTOP_CUA_CONNECTION: join(userData, "cua-connection.json") } : {}),
+        OMB_TEST_ANY_BOT_THIS_COMPUTER: "1",
       },
       stdio: ["ignore", log, log],
     });

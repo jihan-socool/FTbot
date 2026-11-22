@@ -159,7 +159,7 @@ beforeAll(async () => {
       OMB_AGENTS_TOOL_BRIDGE: "0",
       APPDATA: join(fixtureHome, "appdata"), LOCALAPPDATA: join(fixtureHome, "localappdata"),
       TEMP: fixtureHome, TMP: fixtureHome, TMPDIR: fixtureHome,
-      OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui,
+      OMB_PORT: String(port), OMB_TEST_ANY_BOT_THIS_COMPUTER: "1", OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui,
       OMB_TEST_VM_STATE: stateFile, OMB_EXTRA_PATH: fakebin,
       OMB_USER_DATA: join(fixtureHome, "user-data"),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),

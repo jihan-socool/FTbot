@@ -77,7 +77,7 @@ describe("this computer belongs to the desktop app's own server", () => {
         HOME: home, USERPROFILE: home, OMB_DATA_DIR: data,
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
         TEMP: home, TMP: home, TMPDIR: home,
-        OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
+        OMB_PORT: String(port), OMB_TEST_ANY_BOT_THIS_COMPUTER: "1", OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: ui, OMB_TEST_VM_STATE: stateFile,
         // The app's record, where the app keeps it and where this server is pointed: neither lets it in.
         OMB_USER_DATA: join(home, "user-data"),
         ...(desktop ? { OMB_TEST_DESKTOP_CUA_CONNECTION: join(home, "user-data", "cua-connection.json") } : {}),
