@@ -8,6 +8,7 @@ import { track } from "@/lib/analytics";
 import { announcementConditions, announcementPlan, announcementPlatform, announcementSurface, markLaunchAnnouncement, pickAnnouncement, providersRestricted, rememberCardSeen, rememberSponsorDay,
   reportAnnouncement, SPONSOR_CARDS_FOR_TEAM_MEMBERS, useAnnouncementCards, type SeenRecord } from "@/lib/announcements";
 import { boatOfferRuns } from "@/lib/boat-offer";
+import { FTBOT_PAID_OFFERS } from "@/lib/ftbot";
 import { modelgoOfferable, reportModelgoOffer } from "@/lib/modelgo-offer";
 import { brandStatus } from "@/lib/brand";
 import { buyOfferAllowed, cloudNoticeKind, cloudPlanView, cloudTrialNotice, cloudTrialView, offerTrialDays } from "@/lib/cloud-plan";
@@ -169,7 +170,7 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
   const simpleBlocked = useOtherDialogOpen(simpleDue) || Boolean(state.liveCall && state.liveCall.status !== "ended");
   // A sponsor's card is for whoever chooses a team's providers: its Owner and Admins, never its members.
   const sponsorsHere = SPONSOR_CARDS_FOR_TEAM_MEMBERS || !state.config?.team || viewer?.canSave === true;
-  const boatHere = sponsorsHere && boatOfferRuns(now()) && brandStatus().source !== "file";
+  const boatHere = FTBOT_PAID_OFFERS && sponsorsHere && boatOfferRuns(now()) && brandStatus().source !== "file";
   const modelgoHere = sponsorsHere && modelgoOfferable(state.config?.managedPolicy);
 
   const trial = plan?.trial;

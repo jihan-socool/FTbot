@@ -168,6 +168,15 @@ test("Add a Cloud… is always the sheet on this computer's page, never a native
   assert.match(add, /const action = source === "app_howto" \? "cloud-add-howto" : "cloud-add";/);
   assert.deepEqual([...add.matchAll(/webContents\.send\(([^)]*)\)/g)].map(match => match[1]), ['"app:open-settings", action']);
   assert.deepEqual([...add.matchAll(/loadURL\((.*)\);/g)].map(match => match[1]), ["`${rendererOrigin()}/?desktop-settings=${action}`"]);
-  assert.match(between("function cloudOffersAllowed()", "\n}\n"), /return app\.isPackaged && !desktopRemoteAccess && brandedBuild === false;/);
+  assert.match(between("function cloudOffersAllowed()", "\n}\n"), /return FTBOT_MAUSBOT_CLOUD && app\.isPackaged && !desktopRemoteAccess && brandedBuild === false;/);
   assert.match(between("async function readCloudOfferBrand()", "\n}\n"), /fetch\(`http:\/\/127\.0\.0\.1:\$\{SERVER_PORT\}\/api\/brand`/);
+});
+
+test("FTbot: MausBot Cloud, its plans and the online account stay switched off", async () => {
+  const { FTBOT_MAUSBOT_CLOUD } = await import("./ftbot.mjs");
+  assert.equal(FTBOT_MAUSBOT_CLOUD, false);
+  const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+  // The pages only get the account, plan, organization and online-backup bridges when the switch is on.
+  assert.equal(main.match(/FTBOT_MAUSBOT_CLOUD && app\.isPackaged && !desktopRemoteAccess \? \["--omb-company-desktop=1"\]/g)?.length, 2);
+  assert.doesNotMatch(main, /[^&] app\.isPackaged && !desktopRemoteAccess \? \["--omb-company-desktop=1"\]/);
 });

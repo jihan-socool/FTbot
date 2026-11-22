@@ -3,6 +3,7 @@ import { Gift, Mail } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { openEmailDraft } from "@/lib/app-links";
 import { BOAT_OFFER, boatClaimMailto, boatOfferRuns } from "@/lib/boat-offer";
+import { FTBOT_PAID_OFFERS } from "@/lib/ftbot";
 import { brandStatus } from "@/lib/brand";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -50,7 +51,7 @@ export function BoatOfferCard({ onDone }: { onDone: (action: BoatOfferAction) =>
 
 export function BoatOfferPanel() {
   const titleId = useId();
-  if (!boatOfferRuns(Date.now()) || brandStatus().source === "file") return null;
+  if (!FTBOT_PAID_OFFERS || !boatOfferRuns(Date.now()) || brandStatus().source === "file") return null;
   // A plain row in the key's own card: title, its line, and Get Boat; no tinted box of its own.
   return <section data-boat-offer aria-labelledby={titleId} className="flex flex-col gap-2 pt-1">
     <div className="flex items-center gap-6">

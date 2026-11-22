@@ -4,6 +4,7 @@ import vm from "node:vm";
 import { Children, createElement, isValidElement, type EffectCallback, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FTBOT_PAID_OFFERS } from "@/lib/ftbot";
 import type { CloudAccountState, CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
 import type { CloudOffer, CloudTrial } from "../../electron/cloud-home.mjs";
 import { withTourFinished } from "@/lib/guided-tour";
@@ -437,7 +438,7 @@ describe("the Product Hunt launch card", () => {
   });
 });
 
-describe("Boat's credit offer", () => {
+describe.skipIf(!FTBOT_PAID_OFFERS)("Boat's credit offer", () => {
   const TITLE = "$50 of Boat credit for you";
   const BODY = "Boat runs the cloud computers behind MausBot. Buy Boat's $100 plan or bigger, then tell Boat that MausBot sent you, and they'll add $50 in credits to your Boat account.";
   const YOURSELF = "You claim it yourself: it isn't automatic.";
@@ -728,7 +729,7 @@ describe("What's new after the update", () => {
     expect(on(await relaunch()), "back online, a later launch").toBe("pro");
   });
 
-  it("one promo a launch: What's new first; Boat's credit offer waits for the next launch, a reload in this one included", async () => {
+  it.skipIf(!FTBOT_PAID_OFFERS)("one promo a launch: What's new first; Boat's credit offer waits for the next launch, a reload in this one included", async () => {
     returning(); storage.delete(BOAT_OFFER_NOTICE); storage.set(CLOUD_INTRO, "1"); desk.saved = null;
     const first = await launch();
     expect(on(first)).toBe("pro"); expect(first).not.toContain(BOAT);
@@ -1361,7 +1362,7 @@ describe("bots in two places", () => {
   });
 });
 
-describe("ModelGo's sponsor card", () => {
+describe.skipIf(!FTBOT_PAID_OFFERS)("ModelGo's sponsor card", () => {
   const TITLE = "ModelGo is now in MausBot", LINE = "One API key, every model.";
   const URL_EXACT = "https://modelgo.ai/?utm_source=openmausbot&utm_medium=sponsorship&utm_content=app&campaign_id=openmausbot&ad_group_id=app";
   const due = () => { storage.delete(MODELGO_OFFER_NOTICE); };
@@ -1600,7 +1601,7 @@ describe("cards from the announcements file", () => {
     expect(await relaunch()).toContain("Title of second-card");
   });
 
-  it("follows the built-in sponsor card in its launch once that closes, never beside it", async () => {
+  it.skipIf(!FTBOT_PAID_OFFERS)("follows the built-in sponsor card in its launch once that closes, never beside it", async () => {
     storage.delete(MODELGO_OFFER_NOTICE);
     const first = await launch();
     expect(first).toContain("ModelGo"); expect(first).not.toContain("Title of phone-app");
@@ -1788,7 +1789,7 @@ describe("Update MausBot on your phone", () => {
     expect(await launch()).toContain(TITLE);
   });
 
-  it("is a notice to act on: ahead of the sponsor's card, which follows once it is closed, and behind the Grok Bot popup", async () => {
+  it.skipIf(!FTBOT_PAID_OFFERS)("is a notice to act on: ahead of the sponsor's card, which follows once it is closed, and behind the Grok Bot popup", async () => {
     storage.delete(MODELGO_OFFER_NOTICE);
     expect(await launch()).toContain(TITLE);
     press("Not now"); await flush();

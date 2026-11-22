@@ -97,6 +97,7 @@ import { reviveAfterFailedSwitch, switchLocalEnvironment } from "./environment-s
 import { createManagedDesktopClient, createManagedDesktopRelay, createManagedDesktopStore } from "./managed-desktop.mjs";
 import { CHECKOUT_SOURCES, cloudMenuSublabel, cloudTarget, createCloudAccountClient as cloudAccountClient, createCloudAccountStore } from "./cloud-account.mjs";
 import { installCloudPlanIpc } from "./cloud-plan-ipc.mjs";
+import { FTBOT_MAUSBOT_CLOUD } from "./ftbot.mjs";
 import { cloudLinkOpensSheet, colorDotIcons, createCloudLook, createCloudReadyNotice, installCloudBuy, lookFile } from "./cloud-buy.mjs"; import { unreadBadgeIcon } from "./color-dot.mjs";
 import { createTrialNotices } from "./cloud-trial-notice.mjs";
 import { createDesktopText, DESKTOP_PORTS, jsonFile, registerDesktopPrefs, relabelDesktop } from "./desktop-prefs.mjs";
@@ -152,7 +153,7 @@ const cloudEntry = createCloudEntry({
     return delivered;
   },
 });
-cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: async (message, detail, button) => (await dialog.showMessageBox({ type: "question", buttons: [button, nativeT("native.common.cancel")], defaultId: 0, cancelId: 1, message, detail })).response === 0, t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
+cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (FTBOT_MAUSBOT_CLOUD && app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: async (message, detail, button) => (await dialog.showMessageBox({ type: "question", buttons: [button, nativeT("native.common.cancel")], defaultId: 0, cancelId: 1, message, detail })).response === 0, t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
 let pendingPackageInstallUrl = pendingOrganizationEntry ? null : packageUrlFromCommandLine(process.argv);
 let pendingChatLink = pendingOrganizationEntry ? null : chatLinkFromCommandLine(process.argv);
 let organizationEntryReady = false;
@@ -833,7 +834,7 @@ async function readCloudOfferBrand() {
   refreshApplicationMenu();
 }
 function cloudOffersAllowed() {
-  return app.isPackaged && !desktopRemoteAccess && brandedBuild === false;
+  return FTBOT_MAUSBOT_CLOUD && app.isPackaged && !desktopRemoteAccess && brandedBuild === false;
 }
 async function cloudOffersReady() {
   if (brandedBuild === null && serverReady) await readCloudOfferBrand();
@@ -1947,7 +1948,7 @@ function createWindow({ deferNavigation = false } = {}) {
       contextIsolation: true,
       preload: path.join(__dirname, "preload.cjs"),
       additionalArguments: [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
-        ...(app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : []), `--omb-app-version=${app.getVersion()}`, ...(linuxSoftwareRendering ? [SOFTWARE_RENDERING_ARG] : [])],
+        ...(FTBOT_MAUSBOT_CLOUD && app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : []), `--omb-app-version=${app.getVersion()}`, ...(linuxSoftwareRendering ? [SOFTWARE_RENDERING_ARG] : [])],
     },
   });
   mainWindow = win; hiddenStart = false; chromeRail.attach(win);
@@ -2600,7 +2601,7 @@ const placeInbox = createPlaceInboxWatch({ places: () => [{ id: LOCAL_ID, local:
 const localProfiles = createLocalProfiles({ registry: createProfileRegistry({ dataDir: desktopDataDir }), clean: cleanWorkspace, dataDir: desktopDataDir, allowed: () => app.isPackaged && !desktopRemoteAccess, home: () => (homeWindow.cloudOrigin() ? "cloud" : ownHome?.origin() || cleanWorkspace.marker().frozen ? null : "local"), window: { openProfile: id => homeWindow.openProfile(id), profile: () => homeWindow.profile(), showCloud: () => showHome({ place: "cloud" }) }, showLocal: () => { homeWindow.cancel(); persistEnvironments(withActive(environmentsState, LOCAL_ID)); return navigateMainWindow(rendererOrigin()); }, onLocal: () => Boolean(mainWindow && !mainWindow.isDestroyed() && senderIsLocal({ sender: mainWindow.webContents })), busy: async () => { const said = await (await localServerRequest("/api/move/freeze", { signal: AbortSignal.timeout(5_000) })).json(); return typeof said?.busy === "string" ? { name: said.busy, what: said.what } : null; }, trash: dir => shell.trashItem(dir), reserved: () => nativeT(process.platform === "darwin" ? "rail.thisMac" : "rail.thisPc"), remember: homePlaces.remember, changed: () => railChanged(), log: slog }); const railList = () => { ownHome?.refresh(); const settling = localProfiles.settling(); return railPlaces({ saved: environmentsState, waiting: placeInbox.waiting, home: homeWindow.cloudOrigin() ?? ownHome?.origin() ?? null, mine: myCloud(), state: desktopRemoteAccess ? null : cloudAccount?.state(), offers: entry => !desktopRemoteAccess && ownHome?.offers(entry) === true, accounts: accountRing.waiting(), profiles: localProfiles.places({ activeLocal: environmentsState.activeId === LOCAL_ID }), computerSettling: settling && settling.id === null ? settling.name : null }); };
 // The rail as the window's own chrome (chrome-rail.mjs): this app's page beside every place's page, the one that lists.
 const placeSwitch = createPlaceSwitch({ changed: () => railChanged(), stop: () => homeWindow.stopOpening(), kept: () => homePlaces.remembered(), pageSettled: () => { const page = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null; if (page?.isLoadingMainFrame()) return new Promise(done => { page.once("did-stop-loading", done); page.once("destroyed", done); }); } }); const openPlace = (id, stale) => workspaceMenuAction(async () => { if (id === LOCAL_ID) await cleanWorkspace.settled(); if (!stale()) await switchEnvironment(id, stale); }); const chromeRail = createChromeRail({ createView: options => new WebContentsView(options), preload: path.join(__dirname, "preload.cjs"), log: slog, prefs: () => desktopPrefs, changed: () => rail.changed(), openComputer: (page) => openComputerSettings({ window: () => mainWindow, onLocal: (win) => senderIsLocal({ sender: win.webContents }), showLocal: () => placeSwitch.ask(LOCAL_ID, stale => { localProfiles.cancel(); return openPlace(LOCAL_ID, stale); }) }, page),
-  args: () => [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess), ...(app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : []), `--omb-app-version=${app.getVersion()}`],
+  args: () => [...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess), ...(FTBOT_MAUSBOT_CLOUD && app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : []), `--omb-app-version=${app.getVersion()}`],
   url: () => `${rendererOrigin()}${CHROME_RAIL_PATH}`, wanted: () => !desktopRemoteAccess && (serverReady || placeSwitch.target() !== null) && railList().length > 0 });
 chromeRail.install(ipcMain);
 function railChanged() { chromeRail.refresh(); rail.changed(); }

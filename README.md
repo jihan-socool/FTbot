@@ -43,6 +43,7 @@ the whole computer and hand work to the others. You use FTbot from your Mac or y
 | Only the main bot may control the Mac; other bots hand those steps to it | Done in FTbot |
 | Main bot asks you before using the Mac for work another bot handed it | Done in FTbot |
 | New bots start in their own browser instead of on the Mac | Done in FTbot |
+| No MausBot Cloud plans, checkout, billing or sponsor offers | Done in FTbot |
 | A different pointer colour and name tag for each bot | Planned |
 | One screen to watch every bot at once | Planned |
 | Renaming the app from OpenMausBot to FTbot everywhere | Planned |

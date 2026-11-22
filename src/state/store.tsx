@@ -405,6 +405,7 @@ import type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicySummary };
 
 import { configStatusFromFrame, type ConfigStatusFrame } from "@/lib/config-status-frame";
+import { FTBOT_PAID_OFFERS } from "@/lib/ftbot";
 export { configStatusFromFrame, type ConfigStatusFrame };
 
 export type { EngineInstall } from "./engine-install";
@@ -1502,6 +1503,7 @@ export function reducer(state: AppState, action: Action): AppState {
       };
     }
     case "openCloudAdd":
+      if (!FTBOT_PAID_OFFERS) return state;
       return { ...state, cloudAdd: state.cloudAdd ?? { source: action.source, ...(action.signIn ? { signIn: true as const } : {}) }, cloudHowTo: false };
     case "closeCloudAdd":
       return state.cloudAdd ? { ...state, cloudAdd: null } : state;
