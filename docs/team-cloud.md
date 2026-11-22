@@ -365,7 +365,7 @@ mcp: { <name>: [address] } }`: who has connected each, never with what.
 The Admin signs the usual pairing body with two more fields:
 
 ```json
-{ "label": "OpenMausBot app (Team Cloud)", "ttlSeconds": 300,
+{ "label": "FTbot app (Team Cloud)", "ttlSeconds": 300,
   "team": { "id": "<team id>", "name": "Acme" },
   "member": { "email": "mira@example.com", "role": "owner" | "admin" | "member" } }
 ```
@@ -1122,11 +1122,11 @@ opens the team's page on the Cloud site (`/cloud/team/<id>`), not a chat. Nothin
 
 ## The desktop app and a team it was invited to
 
-- **`openmausbot://team/<team id>`** (the join page's Open in the MausBot app; `electron/team-join.mjs`): the id only. Main
+- **`ftbot://team/<team id>`** (the join page's Open in the MausBot app; `electron/team-join.mjs`): the id only. Main
   opens the team as the verified session lists it: signed in as the same address it reads the session again at once and
   opens the team; signed out it starts its own browser sign-in and opens the team once signed in; signed in as someone
   the team isn't listed for, main's own dialog says so and offers to sign in with another address (Add another account:
-  the one in use stays signed in). A link left waiting is dropped after 30 minutes. `openmausbot://cloud` is unchanged.
+  the one in use stays signed in). A link left waiting is dropped after 30 minutes. `ftbot://cloud` is unchanged.
 - **Landing** (`landing` in the Admin's session: no Cloud of the account's own, invited into a team): the window moves to the
   team only on a sign-in this app just saw, the first on this device (`team-landing.json` keeps the accounts signed in here
   and the teams opened here), with no place of the person's own on screen (My Cloud, a remembered place); then once. Any

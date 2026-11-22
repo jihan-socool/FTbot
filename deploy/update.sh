@@ -6,7 +6,7 @@
 #   ./update.sh --check          say what would change, and change nothing
 #   ./update.sh --rollback       put back the version and the data from before the last update (asks first; --yes)
 #   ./update.sh --allow-older    go ahead when the version asked for is older than, or no newer than, the one running
-#   ./update.sh --dir PATH       the install's folder, when it is not this one (the installer's: /opt/openmausbot)
+#   ./update.sh --dir PATH       the install's folder, when it is not this one (the installer's: /opt/ftbot)
 #
 # It runs on the server itself, beside docker-compose.yml, because a server cannot replace its own container. The steps
 # are the ones the MausBot connector runs for a connected server (connector/src/home.ts `update`): download the new
@@ -53,8 +53,8 @@ POLL_S=${OMB_UPDATE_POLL_S:-5}
 BY_RUNNER=${OMB_UPDATE_BY_RUNNER:-}
 RUNNER_COPY="com.mausbot.by=runner"
 # The runner's own folder: a person's run here lets the button try again a version it gave up on (update-runner.sh).
-RUNNER_STATE=${OMB_UPDATE_STATE_DIR:-/var/lib/openmausbot-update}
-KEEP_TAG="openmausbot-before-update:local"
+RUNNER_STATE=${OMB_UPDATE_STATE_DIR:-/var/lib/ftbot-update}
+KEEP_TAG="ftbot-before-update:local"
 BACKUP_ROLE="com.mausbot.role=update-backup"
 
 # The install: --dir, else the folder this script is in when that holds a Compose file, else where the installer
@@ -66,7 +66,7 @@ for arg in "$@"; do
 done
 if [ -z "$DIR" ]; then
   DIR=$(cd "$(dirname "$0")" && pwd)
-  if [ ! -f "$DIR/docker-compose.yml" ] && [ ! -f "$DIR/compose.yaml" ] && [ -f /opt/openmausbot/compose.yaml ]; then DIR=/opt/openmausbot; fi
+  if [ ! -f "$DIR/docker-compose.yml" ] && [ ! -f "$DIR/compose.yaml" ] && [ -f /opt/ftbot/compose.yaml ]; then DIR=/opt/ftbot; fi
 fi
 STATE="$DIR/.update"
 JOURNAL="$STATE/journal"
@@ -375,7 +375,7 @@ installer_compose() {
 # two Unix sockets in the `edge` volume, which Caddy, in its own container, reaches it through. A request on a socket is
 # always a remote one to the server. Caddy does not share the server's network: a server that restarted on its own came
 # back in a new one, and left Caddy refusing HTTPS in the old one.
-name: openmausbot
+name: ftbot
 services:
   omb:
     image: ${OMB_IMAGE:?run the installer again}
@@ -384,16 +384,16 @@ services:
     shm_size: 512m
     volumes:
       - ./data:/data
-      - edge:/run/openmausbot
+      - edge:/run/ftbot
       # The Update server button (update-runner.sh, root's folder): the server leaves a request in the first, reads the
       # outcome in the second.
-      - /var/lib/openmausbot-update/request:/run/omb-update/request
-      - /var/lib/openmausbot-update/status:/run/omb-update/status:ro
+      - /var/lib/ftbot-update/request:/run/omb-update/request
+      - /var/lib/ftbot-update/status:/run/omb-update/status:ro
     environment:
       OMB_PORT: "8799"
       OMB_WEBHOOK_PORT: "8800"
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
+      OMB_TUNNEL_SOCKET: /run/ftbot/http.sock
+      OMB_WEBHOOK_SOCKET: /run/ftbot/hooks.sock
       OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
       OMB_PUBLIC_URL: https://${DOMAIN}
       OMB_SERVER_NAME: ${OMB_SERVER_NAME:-${DOMAIN}}
@@ -402,10 +402,10 @@ services:
       OMB_SIGNIN_MEMBER_EMAILS:
       OMB_SIGNIN_SMTP_URL:
       OMB_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb openmausbot login --relay
+      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb ftbot login --relay
       OMB_PHONE_RELAY:
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q ftbot"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -425,7 +425,7 @@ services:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - edge:/run/openmausbot
+      - edge:/run/ftbot
       - ./caddy/data:/data
       - ./caddy/config:/config
 
@@ -448,7 +448,7 @@ installer_caddyfile() {
 	# own per-hook secrets), so it sits outside any login. The path is passed
 	# through unchanged: the receiver routes on /hooks/<id>.
 	handle /hooks/* {
-		reverse_proxy unix//run/openmausbot/hooks.sock
+		reverse_proxy unix//run/ftbot/hooks.sock
 	}
 
 	handle {
@@ -458,7 +458,7 @@ installer_caddyfile() {
 		#   }
 		# and set both variables in .env (hash with `caddy hash-password`,
 		# every `$` doubled for Compose).
-		reverse_proxy unix//run/openmausbot/http.sock {
+		reverse_proxy unix//run/ftbot/http.sock {
 			# SSE: stream events as they arrive
 			flush_interval -1
 			# Compression is `encode`'s job above; the server would gzip its
@@ -478,9 +478,9 @@ stop_server() {
   [ -z "$cid" ] || [ "$(inspect '{{.State.Running}}' "$cid")" = false ]
 }
 
-answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -q openmausbot; }
+answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -q ftbot; }
 reported_version() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/ftbot/environment"' 2>/dev/null | json_top version
 }
 # How many engines can start a bot, as the server counts them (GET /api/health/engines, which a hardened server answers
 # a local caller without a session); nothing from a version without that count.
@@ -488,7 +488,7 @@ engine_count() {
   compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 10 "http://127.0.0.1:${OMB_PORT:-8799}/api/health/engines"' 2>/dev/null |
     sed -n 's/.*"engines":\([0-9][0-9]*\).*/\1/p' | head -n 1
 }
-# At least one engine can start a bot, within $1 seconds: the server's count, or `openmausbot doctor` on a version that
+# At least one engine can start a bot, within $1 seconds: the server's count, or `ftbot doctor` on a version that
 # has no count (it needs the owner's trust, so on a hardened version without the count this cannot tell).
 engine_ready() {
   local deadline=$(($(date +%s) + ${1:-0})) count
@@ -496,7 +496,7 @@ engine_ready() {
     count=$(engine_count)
     if [ -n "$count" ]; then
       [ "$count" -gt 0 ] && return 0
-    elif compose exec -T "$SERVICE" openmausbot doctor >/dev/null 2>&1; then
+    elif compose exec -T "$SERVICE" ftbot doctor >/dev/null 2>&1; then
       return 0
     fi
     [ "$(date +%s)" -lt "$deadline" ] || return 1

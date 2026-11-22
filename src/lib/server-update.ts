@@ -130,7 +130,7 @@ function runNote(status: ServerUpdateStatus | null): Pick<ServerUpdateView, "not
       return { note: `${t("serverUpdate.rollbackFailed")}${detail}`, noteTone: "danger" };
     }
     case "not-changed": return { note: `${t("serverUpdate.notChanged")} ${reasonText(run.reason ?? "failed", status!, run)}`, noteTone: "danger" };
-    case "not-started": return { note: `${t("serverUpdate.notStarted")} ${t("serverUpdate.runOnServer", { command: "systemctl status openmausbot-update.path" })}`, noteTone: "danger" };
+    case "not-started": return { note: `${t("serverUpdate.notStarted")} ${t("serverUpdate.runOnServer", { command: "systemctl status ftbot-update.path" })}`, noteTone: "danger" };
     default: return {};
   }
 }

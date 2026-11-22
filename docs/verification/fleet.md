@@ -92,8 +92,8 @@ Linux recipe below remains required before a production deployment.
 Dry-run on any machine, to read what a real run would do:
 
 ```sh
-openmausbot fleet init --domain example.test --dry-run
-openmausbot fleet create acme --admin owner@acme.test --dry-run
+ftbot fleet init --domain example.test --dry-run
+ftbot fleet create acme --admin owner@acme.test --dry-run
 ```
 
 ## A real server
@@ -104,14 +104,14 @@ record):
 
 1. Fresh Ubuntu 24.04 or newer, Caddy from apt, `npm install -g openmausbot`,
    Claude Code installed once as root, a wildcard DNS record at the server.
-2. `openmausbot fleet init --domain <domain>`; check `systemctl status
-   openmausbot-fence` and `nft list table inet openmausbot`.
-3. `openmausbot fleet create alpha --admin you@example.test --cap 1` and the
+2. `ftbot fleet init --domain <domain>`; check `systemctl status
+   ftbot-fence` and `nft list table inet ftbot`.
+3. `ftbot fleet create alpha --admin you@example.test --cap 1` and the
    same for `beta`; both `https://alpha.<domain>` and `https://beta.<domain>`
    must show the pair page with a certificate.
 4. Isolation: as `omb-alpha` (`runuser -u omb-alpha -- curl -s
    http://127.0.0.1:<beta port>/api/health`) the connection must be refused;
-   as root it must answer. `ls /var/lib/openmausbot/beta` as `omb-alpha` must
+   as root it must answer. `ls /var/lib/ftbot/beta` as `omb-alpha` must
    be denied.
 5. `fleet users alpha add other@example.test --chat-only`, sign in as that
    address, confirm chat-only scope.

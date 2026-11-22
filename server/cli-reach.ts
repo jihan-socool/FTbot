@@ -1,11 +1,11 @@
-// How other devices reach a server `openmausbot serve` started, and the lines that say so. A route is chosen by a flag
+// How other devices reach a server `ftbot serve` started, and the lines that say so. A route is chosen by a flag
 // (or the saved setup); the link always uses the first one in ROUTE_ORDER.
 import { allowedServerOrigin, isLoopbackHost } from "../electron/server-address.mjs";
 import { reachableAddresses, type ReachableAddresses } from "./lan-address.ts";
 
 export type Route = "public-url" | "domain" | "tunnel" | "tailscale" | "lan";
 
-const DESCRIPTOR = "/.well-known/openmausbot/environment";
+const DESCRIPTOR = "/.well-known/ftbot/environment";
 
 /** `--public-url`: https anywhere, or http on a private network; never plain http on the open internet. */
 export function publicUrlProblem(url: string): string | null {

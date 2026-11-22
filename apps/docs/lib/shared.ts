@@ -6,6 +6,6 @@ export const siteUrl = 'https://docs.openmausbot.com';
 
 export const gitConfig = {
   user: 'milind-soni',
-  repo: 'OpenMausBot',
+  repo: 'FTbot',
   branch: 'main',
 };

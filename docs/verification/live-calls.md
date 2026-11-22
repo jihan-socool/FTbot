@@ -185,7 +185,7 @@ same route for the bot's answers. `FishRelay` (`server/live-fish.ts`) turns the
 reports into the GPT-Live sideband events `LiveCallController` already reads
 and the controller's appends into commands the client hands the agent: the
 answer to a pending `delegate` call as its tool result, anything later as a
-user message prefixed `[OpenMausBot]`. Every report is a strict, bounded zod
+user message prefixed `[FTbot]`. Every report is a strict, bounded zod
 shape; a wrong token or session answers `404`; the route needs the admin scope.
 The `delegate` tool's arguments are ignored: the request is what the client
 heard, as on GPT-Live.
@@ -260,8 +260,8 @@ curl -s -X POST http://127.0.0.1:PORT/api/live/session -H 'content-type: applica
 curl -s http://127.0.0.1:PORT/api/live/call
 curl -s -X POST http://127.0.0.1:PORT/api/live/call/end -H 'content-type: application/json' \
   -d '{"callId":"CALL_ID"}'
-pnpm control:omb ui wait-settle --ui /tmp/openmausbot-verify-data-XXXXXX/ui.json --timeout 60
-pnpm control:omb ui snapshot --ui /tmp/openmausbot-verify-data-XXXXXX/ui.json
+pnpm control:omb ui wait-settle --ui /tmp/ftbot-verify-data-XXXXXX/ui.json --timeout 60
+pnpm control:omb ui snapshot --ui /tmp/ftbot-verify-data-XXXXXX/ui.json
 curl -s "http://127.0.0.1:PORT/api/threads/THREAD_ID/messages?limit=20"
 ```
 

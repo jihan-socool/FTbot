@@ -287,9 +287,9 @@ test("the talk shortcut is on with ⌃⌥Space until changed, and the choice sur
 test("each server keeps its own Quick asks chat; nothing malformed is read back", () => {
   let saved = null;
   const prefs = createDesktopPrefs({ read: () => saved, write: value => { saved = structuredClone(value); } });
-  prefs.setQuickAsksChat("/Users/a/.openmausbot", { botId: "bot-1", threadId: "t-1" });
-  assert.deepEqual(createDesktopPrefs({ read: () => saved, write: () => {} }).quickAsksChat("/Users/a/.openmausbot"), { botId: "bot-1", threadId: "t-1" });
-  assert.equal(prefs.quickAsksChat("/Users/a/.openmausbot-aprs"), null);
+  prefs.setQuickAsksChat("/Users/a/.ftbot", { botId: "bot-1", threadId: "t-1" });
+  assert.deepEqual(createDesktopPrefs({ read: () => saved, write: () => {} }).quickAsksChat("/Users/a/.ftbot"), { botId: "bot-1", threadId: "t-1" });
+  assert.equal(prefs.quickAsksChat("/Users/a/.ftbot-aprs"), null);
   const broken = createDesktopPrefs({ read: () => ({ quickAsks: { a: { botId: "../x", threadId: "t" }, b: "t-1", c: { botId: "b", threadId: "t", extra: 1 } } }), write: () => {} });
   assert.equal(broken.quickAsksChat("a"), null);
   assert.equal(broken.quickAsksChat("b"), null);
@@ -448,7 +448,7 @@ test("readFrames joins frames split across chunks and skips heartbeats and junk"
 });
 ```
 
-- [ ] **Step 2: Write the failing fixture test** (`server/talk-server.e2e.test.ts`; launch with `OMB_TEST_DESKTOP_OWNER_TOKEN: owner` and send `x-openmausbot-desktop-owner` on every request, as `server/chat-pages.e2e.test.ts:54-56` does, so it runs the packaged desktop's path)
+- [ ] **Step 2: Write the failing fixture test** (`server/talk-server.e2e.test.ts`; launch with `OMB_TEST_DESKTOP_OWNER_TOKEN: owner` and send `x-ftbot-desktop-owner` on every request, as `server/chat-pages.e2e.test.ts:54-56` does, so it runs the packaged desktop's path)
 
 ```ts
 it("asks MausBot in its own Quick asks chat, as the desktop app does, and follows the reply to the end", async () => {
@@ -708,7 +708,7 @@ Wiring in `main.mjs`:
 - `function appWindows() { return BrowserWindow.getAllWindows().filter((win) => !isTalkPanel(win)); }` (a hoisted declaration near the top) replaces every `BrowserWindow.getAllWindows()` call.
 - `speech:stop` and `speech:finish` call `stopSpeech(BrowserWindow.fromWebContents(event.sender))` / `finishSpeech(…)`, so a page never stops the talk box's session.
 - Next to the speech IPC: `const callPresence = createCallPresence();`, `let talkShortcut = null, talkSession = null;`, the three handlers (`talk-shortcut:set` passes only boolean `enabled` and string `key` through).
-- In `whenReady`, at 3066: `const desktopPrefs = createDesktopPrefs(jsonFile(path.join(app.getPath("userData"), "desktop-prefs.json")));` passed as `prefs` to `registerDesktopPrefs`; then the panel (`createTalkPanel({ BrowserWindow, screen, iconPath: APP_ICON, onOpen: () => talkSession.open(), onDismiss: () => talkSession.dismiss() })`), `talkShortcut = createTalkShortcut({ globalShortcut, prefs: desktopPrefs, available: () => nativeActions.appleSpeech && !desktopRemoteAccess, onPress: () => talkSession.press() })` and `talkSession = createTalkSession({ speech: { start: startSpeech, stop: stopSpeech }, server: createTalkServer({ request: talkRequest, prefs: desktopPrefs, serverKey: () => (app.isPackaged ? runningDataDir : DEV_URL) ?? "local" }), panel, voiceInUse: () => speechBusy() || callPresence.active(), release: () => talkShortcut.releaseModifiers(), openChat: chat => (chat ? queueChatLink(`openmausbot://thread/${chat.threadId}?bot=${chat.botId}`) : revealForLink()) })`.
+- In `whenReady`, at 3066: `const desktopPrefs = createDesktopPrefs(jsonFile(path.join(app.getPath("userData"), "desktop-prefs.json")));` passed as `prefs` to `registerDesktopPrefs`; then the panel (`createTalkPanel({ BrowserWindow, screen, iconPath: APP_ICON, onOpen: () => talkSession.open(), onDismiss: () => talkSession.dismiss() })`), `talkShortcut = createTalkShortcut({ globalShortcut, prefs: desktopPrefs, available: () => nativeActions.appleSpeech && !desktopRemoteAccess, onPress: () => talkSession.press() })` and `talkSession = createTalkSession({ speech: { start: startSpeech, stop: stopSpeech }, server: createTalkServer({ request: talkRequest, prefs: desktopPrefs, serverKey: () => (app.isPackaged ? runningDataDir : DEV_URL) ?? "local" }), panel, voiceInUse: () => speechBusy() || callPresence.active(), release: () => talkShortcut.releaseModifiers(), openChat: chat => (chat ? queueChatLink(`ftbot://thread/${chat.threadId}?bot=${chat.botId}`) : revealForLink()) })`.
 - `talkRequest(route, init)`: packaged → `localServerRequest(route, init)` (owner header; rejects while the server is down); dev → `fetch(new URL(route, DEV_URL), init)`, through Vite's `/api` proxy to `pnpm dev:server`, because dev never starts the server itself (`serverReady = !app.isPackaged`, line 313).
 - `before-quit`, first lines: `talkSession?.close(); talkShortcut?.close();`.
 
@@ -842,7 +842,7 @@ git commit -m "feat(talk): Settings row, and calls tell main they hold the micro
 
 `talk-shortcut.md` sections (in this repo's recipe style, see `docs/verification/local-environments.md`):
 1. **Floor: automated checks** — `node --test electron/talk-*.node-test.mjs electron/desktop-prefs.node-test.mjs electron/preload.node-test.mjs electron/speech-helper-release.node-test.mjs`; `pnpm exec vitest run electron/speech.test.mjs server/task-select.test.ts server/talk-server.e2e.test.ts src/lib/call-presence.test.ts src/components/TalkShortcutRow.test.ts --maxWorkers=1`; `pnpm typecheck && pnpm lint && pnpm i18n:check`. What they prove and what they do not (the real hotkey, the microphone, focus, Spaces).
-2. **Setup** — a packaged build of the branch installed beside, never over, the installed OpenMausBot (maintainers: the OMB2 side-by-side build), launched with `OMB_DATA_DIR=$HOME/.openmausbot-test` unless the check needs real bots; only one running app may hold the key. Composer dictation used once first so Microphone and Speech Recognition are granted.
+2. **Setup** — a packaged build of the branch installed beside, never over, the installed FTbot (maintainers: the OMB2 side-by-side build), launched with `OMB_DATA_DIR=$HOME/.ftbot-test` unless the check needs real bots; only one running app may hold the key. Composer dictation used once first so Microphone and Speech Recognition are granted.
 3. **By hand**, each with its expected result:
    - Settings → General shows the row, on, "Hold ⌃⌥Space, speak, let go".
    - In Safari's address bar: hold ⌃⌥, tap Space, say "what can you do", let go of ⌃⌥. Live words, then the reply, bottom-centre of that display. `osascript -e 'tell application "System Events" to name of first application process whose frontmost is true'` prints `Safari` before and after; the caret still blinks in Safari; the MausBot window stays behind.

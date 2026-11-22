@@ -1371,7 +1371,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 
 function handleFrom(raw: string): string {
   const handle = normalizeHandle(raw);
-  if (!handle) throw new XResearchError("bad_input", "handle must be an X handle such as @openmausbot, or an x.com profile link.");
+  if (!handle) throw new XResearchError("bad_input", "handle must be an X handle such as @ftbot, or an x.com profile link.");
   return handle;
 }
 
@@ -2083,4 +2083,4 @@ Use the repo's `verify-omb` skill (isolated fake-engine instance) to confirm, be
 
 - [ ] **Step 4: Hand off for a local test**
 
-Use the `test-locally` skill to build OMB2 from `feat/x-research-tools`. Do not touch `/Applications/OpenMausBot.app`. Report the branch, the commits, and what Omkar should try. Do not push or open a PR.
+Use the `test-locally` skill to build OMB2 from `feat/x-research-tools`. Do not touch `/Applications/FTbot.app`. Report the branch, the commits, and what Omkar should try. Do not push or open a PR.

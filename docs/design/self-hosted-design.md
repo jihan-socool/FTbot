@@ -107,7 +107,7 @@ The Coolify hosted-workspace path (never proven on a real install). `fleet` stay
 
 Decided: the server installer brings MausBot; the connector attaches to that install and the Admin never starts it.
 
-- **Chosen on the server.** `connector/install.sh` picks `customer-run` when `/opt/openmausbot/compose.yaml` exists
+- **Chosen on the server.** `connector/install.sh` picks `customer-run` when `/opt/ftbot/compose.yaml` exists
   and starts the connector with `MAUSBOT_MODE=customer-run`; the enrolment writes the mode into the connector's state.
   The stricter of the two always wins, and nothing the Admin sends changes it. A connector started in `operated` mode
   refuses to enrol where the owner's MausBot already runs.
@@ -130,12 +130,12 @@ Decided: the server installer brings MausBot; the connector attaches to that ins
 - **The report is rebuilt, not filtered.** `reducedHeartbeat` and `reducedReply` copy named fields; every string is an
   enumerated code or matches a pattern (a version, an image reference, a machine's own name for itself). A failed job
   sends its code and a fixed sentence; the reason stays in the audit log.
-- **Adoption.** `AdoptedHome` finds the Compose project `openmausbot` (service `omb`, Caddy in front, `/data` bound
+- **Adoption.** `AdoptedHome` finds the Compose project `ftbot` (service `omb`, Caddy in front, `/data` bound
   to a folder). `start`, `stop` and `restart` start and stop those containers. `backup` and `restore` copy that folder
   to and from Docker volumes on the same server with helpers run from the home's own image.
 - **Update: the server's own updater.** The connector never recreates the owner's containers and never writes the
   owner's `.env`. It leaves `id` and `image` in `/var/lib/mausbot/update/request`; a systemd path unit on the host runs
-  `mausbot-update-runner`, which checks the image again and runs `/opt/openmausbot/update.sh --image <digest>`; the
+  `mausbot-update-runner`, which checks the image again and runs `/opt/ftbot/update.sh --image <digest>`; the
   connector reads the exit code. So a connected update and a hand-run update are the same code, with the same copy,
   health check, rollback and journal. Chosen over driving Compose from inside the connector (which would need the
   install folder writable in a container and a Compose binary in the image) and over recreating containers through
@@ -188,7 +188,7 @@ Read at the commit that adds the customer-run mode. "Built" means the code is in
 ### Different from this document
 
 - **Updates on a connected server need `update.sh` in place.** The connector hands an update to
-  `/opt/openmausbot/update.sh`. The installer places that file only once it and the update command have merged (see
+  `/opt/ftbot/update.sh`. The installer places that file only once it and the update command have merged (see
   In review), so until then the `update` job is refused with `update_unavailable` and nothing changes.
 - **Backups stay on the server.** `backup` copies the data to a Docker volume on the same server. A bucket the
   customer configures is phase 2.
@@ -222,7 +222,7 @@ Read at the commit that adds the customer-run mode. "Built" means the code is in
 
 Written and under review, not merged:
 
-- **The installer** (`deploy/install.sh`, #5158): the preflight, the install under `/opt/openmausbot`, and for a
+- **The installer** (`deploy/install.sh`, #5158): the preflight, the install under `/opt/ftbot`, and for a
   version with the hardened profile the host's preparation for the bots' sandbox and the server's own self-check of
   it. It places `update.sh` and keeps the version that pins.
 - **The `stable` channel and the one-command update with rollback** for standalone servers (`deploy/update.sh`,

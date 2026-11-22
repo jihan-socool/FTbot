@@ -63,7 +63,7 @@ function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null
       return;
     }
     const gate = resolveRequestAuth(req, { sessions, cookieName: "omb_session", streamPath: "/api/events", url });
-    if (url.pathname === "/api/health" && !gate.auth) return send(200, { app: "openmausbot" });
+    if (url.pathname === "/api/health" && !gate.auth) return send(200, { app: "ftbot" });
     if (!gate.auth) return send(gate.status, { error: gate.error });
     return send(200, { kind: gate.auth.kind, id: gate.auth.kind === "session" ? gate.auth.session.id : null, source: requestSource(req), host: req.headers.host, via: gate.auth.kind === "session" ? gate.auth.via : null });
   };
@@ -160,7 +160,7 @@ describe("phones through MausBot Relay on a server", () => {
     expect(server.logs).toContain(`phone relay: connected via ${NODE}`);
     const opened = server.sessions.openPairing({ scopes: ["client"] });
     const link = server.phoneRelay.invite(opened.credential, "VPS", null)!;
-    expect(link).toMatch(/^openmausbot:\/\/pair\?address=relay-only\.invalid%3A443&token=omb_pair_/);
+    expect(link).toMatch(/^ftbot:\/\/pair\?address=relay-only\.invalid%3A443&token=omb_pair_/);
     const descriptor = descriptorOf(link);
     expect(descriptor).toEqual({ v: 1, k: expect.any(String), h: b64u(server.hostId), r: [NODE] });
     const k = fromB64u(descriptor.k)!;
@@ -168,7 +168,7 @@ describe("phones through MausBot Relay on a server", () => {
     await waitFor(() => server.relay.admitted(b64u(server.hostId)).has(admissionHash(admission(credentialHash(opened.credential), server.hostId))));
 
     const session = await waitFor(() => viaRelay(server, k, opened.credential).catch(() => null), 6_000);
-    expect(json(await http(session, "GET", "/api/health"))).toEqual({ app: "openmausbot" });
+    expect(json(await http(session, "GET", "/api/health"))).toEqual({ app: "ftbot" });
     expect(await http(session, "GET", "/api/auth/session").then((reply) => [reply.status, json(reply).error])).toEqual([401, "pair this phone first"]);
 
     const paired = await http(session, "POST", "/api/pair", { body: JSON.stringify({ credential: opened.credential, deviceName: "Pixel" }), headers: { "content-type": "application/json" } });
@@ -181,7 +181,7 @@ describe("phones through MausBot Relay on a server", () => {
     // The same session now speaks for the new phone, with its own session.
     expect(json(await http(session, "GET", "/api/auth/session", { token: reply.token }))).toEqual({ kind: "session", id: reply.device.id, source: `relay-${reply.device.id}`, host: "phone-relay.invalid", via: "bearer" });
     // Whatever the phone writes, a relayed request is never this machine's.
-    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-openmausbot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
+    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-ftbot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
     expect(spoofed.status).toBe(403);
     expect(json(spoofed).error).toMatch(/proxy/);
     // A token inside the session must be the one whose key opened it.
@@ -302,7 +302,7 @@ describe("phones through MausBot Relay on a server", () => {
     expect(tunnelHolder({}, dir)).toBeNull();
     expect(tunnelHolder({ OMB_SERVES_TUNNEL: "1", OMB_TUNNEL_SOCKET: join(dir, "t.sock") }, dir)).toBe("this server runs with --tunnel");
     // Docker's Caddy reaches the server over a socket too: that is no tunnel.
-    expect(tunnelHolder({ OMB_TUNNEL_SOCKET: "/run/openmausbot/http.sock" }, dir)).toBeNull();
+    expect(tunnelHolder({ OMB_TUNNEL_SOCKET: "/run/ftbot/http.sock" }, dir)).toBeNull();
     expect(tunnelHolder({ OMB_INSTALLATION_CREDENTIAL: "omb_install_y" }, dir)).toMatch(/^OMB_INSTALLATION_CREDENTIAL is set/);
     writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x", managedCompanionEndpointUrl: "https://c-0123456789abcdef0123456789abcdef.openmausbot.com" }));
     expect(tunnelHolder({}, dir)).toMatch(/holds a tunnel address/);

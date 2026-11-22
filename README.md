@@ -44,9 +44,9 @@ the whole computer and hand work to the others. You use FTbot from your Mac or y
 | Main bot asks you before using the Mac for work another bot handed it | Done in FTbot |
 | New bots start in their own browser instead of on the Mac | Done in FTbot |
 | No MausBot Cloud plans, checkout, billing or sponsor offers | Done in FTbot |
+| The app is called FTbot everywhere (links to the original project and its services keep their names) | Done in FTbot |
 | A different pointer colour and name tag for each bot | Planned |
 | One screen to watch every bot at once | Planned |
-| Renaming the app from OpenMausBot to FTbot everywhere | Planned |
 
 ## Install on a Mac
 

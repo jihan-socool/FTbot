@@ -27,7 +27,7 @@ describe("ways in", () => {
   });
 
   it("a browser on the Docker host opens the published port; elsewhere this server's own", () => {
-    expect(localLinkBase("http://localhost:8080", 8799, { OMB_CLI_PREFIX: "docker compose exec omb openmausbot" })).toEqual({ base: "http://localhost:8080", place: "docker" });
+    expect(localLinkBase("http://localhost:8080", 8799, { OMB_CLI_PREFIX: "docker compose exec omb ftbot" })).toEqual({ base: "http://localhost:8080", place: "docker" });
     expect(localLinkBase(null, 8799, {})).toEqual({ base: "http://127.0.0.1:8799", place: "machine" });
     expect(localLinkBase("https://maus.example.com", 8799, {})).toEqual({ base: "http://127.0.0.1:8799", place: "machine" });
   });
@@ -48,9 +48,9 @@ describe("the Reach line", () => {
       "Reach    ✗ https://maus.example.com doesn't reach this server (connection refused).",
       "           Point your tunnel or proxy at http://127.0.0.1:8799 (on another machine: add --lan and use this machine's address), then run: npx openmausbot status",
     ]);
-    expect(reachLines("public-url", "https://maus.example.com", 8799, "openmausbot", { ok: false, kind: "other-server" })[0]).toContain("answers as a different server");
-    expect(reachLines("lan", "http://192.168.1.20:8799", 8799, "openmausbot")).toEqual(["Reach    http://192.168.1.20:8799   this network only, not encrypted"]);
-    expect(reachLines("tailscale", "https://mini.tail1234.ts.net", 8799, "openmausbot", { ok: true, at: Date.parse("2026-11-07T11:04:00") })[0]).toMatch(/✓ answers as this server \(.+\) · your tailnet$/);
+    expect(reachLines("public-url", "https://maus.example.com", 8799, "ftbot", { ok: false, kind: "other-server" })[0]).toContain("answers as a different server");
+    expect(reachLines("lan", "http://192.168.1.20:8799", 8799, "ftbot")).toEqual(["Reach    http://192.168.1.20:8799   this network only, not encrypted"]);
+    expect(reachLines("tailscale", "https://mini.tail1234.ts.net", 8799, "ftbot", { ok: true, at: Date.parse("2026-11-07T11:04:00") })[0]).toMatch(/✓ answers as this server \(.+\) · your tailnet$/);
   });
 
   it("waits a while for a tunnel or certificate, then gives up on its budget", async () => {

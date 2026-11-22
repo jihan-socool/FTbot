@@ -1,58 +1,58 @@
 export { HEADLESS_VERBS as HEADLESS_VERB_NAMES } from "./headless/args.ts";
 
 export const HEADLESS_USAGE = `Drive a running workspace (scripts, CI, other agents):
-  openmausbot doctor                    check the server answers and an engine is ready
-  openmausbot doctor --host             check this Linux machine can run a server (exit 7 if not)
-  openmausbot bots | channels | models  your bots, your rooms, the engines and their models
-  openmausbot run BOT "do this"         give a bot one job and wait until it and every teammate it asked are done
-  openmausbot send BOT "text"           send one message and return at once
-  openmausbot wait BOT                  wait on work already running
-  openmausbot messages BOT              the latest messages of a conversation
-  openmausbot interrupt BOT [--tree]    press Stop (--tree: and every teammate on its job)
-  openmausbot export BOT --out DIR      write a job's transcripts, files and screens to DIR
-  openmausbot events [--job THREAD]     the server's live events as JSON lines
-  openmausbot team apply FILE           make the workspace match a team file (team export writes one)
-  openmausbot engine set claude --key-env ANTHROPIC_API_KEY   give it an engine without a screen
-  openmausbot connect URL --code CODE --out FILE              get a token for a workspace elsewhere
-  openmausbot token create NAME --out FILE [--expires 90d]    a token for CI that ends on its date (token list, token revoke ID)
-  openmausbot new-bot | new-channel | set-model | edit | mcp
+  ftbot doctor                    check the server answers and an engine is ready
+  ftbot doctor --host             check this Linux machine can run a server (exit 7 if not)
+  ftbot bots | channels | models  your bots, your rooms, the engines and their models
+  ftbot run BOT "do this"         give a bot one job and wait until it and every teammate it asked are done
+  ftbot send BOT "text"           send one message and return at once
+  ftbot wait BOT                  wait on work already running
+  ftbot messages BOT              the latest messages of a conversation
+  ftbot interrupt BOT [--tree]    press Stop (--tree: and every teammate on its job)
+  ftbot export BOT --out DIR      write a job's transcripts, files and screens to DIR
+  ftbot events [--job THREAD]     the server's live events as JSON lines
+  ftbot team apply FILE           make the workspace match a team file (team export writes one)
+  ftbot engine set claude --key-env ANTHROPIC_API_KEY   give it an engine without a screen
+  ftbot connect URL --code CODE --out FILE              get a token for a workspace elsewhere
+  ftbot token create NAME --out FILE [--expires 90d]    a token for CI that ends on its date (token list, token revoke ID)
+  ftbot new-bot | new-channel | set-model | edit | mcp
 
-  Server: --url URL (or OPENMAUSBOT_URL), --port N (or OMB_PORT), else this computer's.
-  Token: OPENMAUSBOT_TOKEN or --token-file FILE. --json prints one JSON document;
-  progress goes to stderr (--quiet drops it). openmausbot help VERB for the details.`;
+  Server: --url URL (or FTBOT_URL), --port N (or OMB_PORT), else this computer's.
+  Token: FTBOT_TOKEN or --token-file FILE. --json prints one JSON document;
+  progress goes to stderr (--quiet drops it). ftbot help VERB for the details.`;
 
 /** The usage text, its commands written the way this CLI was started (`npx openmausbot …`). */
-export function usage(prefix = "openmausbot"): string {
-  return USAGE.split("\n").map((line) => line.replace(/^(\s+)openmausbot(?= )/, `$1${prefix}`)).join("\n");
+export function usage(prefix = "ftbot"): string {
+  return USAGE.split("\n").map((line) => line.replace(/^(\s+)ftbot(?= )/, `$1${prefix}`)).join("\n");
 }
 
-export const USAGE = `openmausbot — your team of AI bots, ready in a few steps
+export const USAGE = `ftbot — your team of AI bots, ready in a few steps
 
-  openmausbot                         set up once, then open your workspace
-  openmausbot setup [--data-dir DIR]
-  openmausbot start [the same options as serve]
-  openmausbot serve [--port 8799] [--data-dir DIR] [--label NAME]
+  ftbot                         set up once, then open your workspace
+  ftbot setup [--data-dir DIR]
+  ftbot start [the same options as serve]
+  ftbot serve [--port 8799] [--data-dir DIR] [--label NAME]
                     [--public-url https://host | --domain HOST | --tunnel | --tailscale] [--lan] [--relay]
-  openmausbot pair  [--label NAME] [--phone [ios|android]] [--ttl 24h] [--public-url https://host]
-  openmausbot devices [revoke ID]
-  openmausbot status
-  openmausbot --version
-  openmausbot login [--email you@example.com] [--relay]
-  openmausbot logout
-  openmausbot access list | add EMAIL [--chat-only] | remove EMAIL
-  openmausbot service install [the same way-in options as serve] [--port N] [--data-dir DIR] | uninstall
+  ftbot pair  [--label NAME] [--phone [ios|android]] [--ttl 24h] [--public-url https://host]
+  ftbot devices [revoke ID]
+  ftbot status
+  ftbot --version
+  ftbot login [--email you@example.com] [--relay]
+  ftbot logout
+  ftbot access list | add EMAIL [--chat-only] | remove EMAIL
+  ftbot service install [the same way-in options as serve] [--port N] [--data-dir DIR] | uninstall
                     [--sentinel]   (the health scan below, every two minutes, instead of the server)
-  openmausbot sentinel [--data-dir DIR] [--out DIR] [--once] [--json]   (read-only health scan; see --help)
-  openmausbot config backups | restore NAME    (dated copies of the settings file; see --help)
-  openmausbot browser install [--with-deps] | status
-  openmausbot fleet init --domain HOST [--operator USER] | create NAME --admin EMAIL [--member EMAIL] [--brand FILE]
+  ftbot sentinel [--data-dir DIR] [--out DIR] [--once] [--json]   (read-only health scan; see --help)
+  ftbot config backups | restore NAME    (dated copies of the settings file; see --help)
+  ftbot browser install [--with-deps] | status
+  ftbot fleet init --domain HOST [--operator USER] | create NAME --admin EMAIL [--member EMAIL] [--brand FILE]
                     [--anthropic-key-file FILE] [--cap USD] [--license-key KEY] [--memory 1G]
                   | list | users NAME add|remove EMAIL [--chat-only] | suspend NAME | resume NAME
                   | delete NAME --yes [--keep-data] | upgrade   (all take --dry-run)
                   | agent [--socket PATH] [--group USER]   (root; installed by init --operator)
 
 setup   choose AI access and optional phone access; keep existing bots and chats
-start   same as openmausbot: use your saved settings and open the workspace
+start   same as ftbot: use your saved settings and open the workspace
 serve   starts the server without prompts; in a terminal it prints a pairing
         code, the link to paste into the desktop app (＋ → Connect to a
         server) and a QR for a phone
@@ -62,7 +62,7 @@ pair    a new pairing code for the running server, with its link and QR
 devices lists paired devices; "devices revoke ID" signs one out
 status  the running server, the address others reach it at, and whether
         that address answers as this server
-login   signs this machine in to an OpenMausBot account (an emailed code)
+login   signs this machine in to an FTbot account (an emailed code)
         and reserves its public address for --tunnel; with --relay it
         reserves none, for serve --relay
 logout  releases that address and signs out
@@ -99,7 +99,7 @@ Ways in (pick one; --lan can join any):
              when serve stops
 --tunnel     serve at a public https://c-… address through a
              Cloudflare tunnel: no domain, no proxy, no open port. Run
-             \`openmausbot login\` once on this machine first.
+             \`ftbot login\` once on this machine first.
 --domain     serve at https://HOST on your own domain: a pinned Caddy is
              downloaded once and run alongside the server, and gets the
              certificate itself. Point the domain's DNS at this machine and
@@ -108,7 +108,7 @@ Ways in (pick one; --lan can join any):
 --relay      phones only, and it can join any of the above except --tunnel:
              the MausBot phone app pairs by QR through MausBot Relay,
              end-to-end encrypted, with no address, open port or VPN. Run
-             \`openmausbot login --relay\` once on this machine first. Not on a
+             \`ftbot login --relay\` once on this machine first. Not on a
              machine with a tunnel address: the relay stays off there.
 
 --no-open   do not open a browser window
@@ -117,6 +117,6 @@ Ways in (pick one; --lan can join any):
 
 ${HEADLESS_USAGE}
 
-Install once with \`npm install -g openmausbot\`, then type \`openmausbot\`.
+Install once with \`npm install -g openmausbot\`, then type \`ftbot\`.
 Or run without a global install: \`npx openmausbot\`. Node 24+ is required.
 `;

@@ -1,4 +1,4 @@
-# One OpenMausBot tenant: the harness server plus Caddy for TLS + login.
+# One FTbot tenant: the harness server plus Caddy for TLS + login.
 #
 # The server only listens on loopback inside its container, and on two Unix
 # sockets in the `edge` volume; Caddy, in its own container, reaches it through
@@ -30,13 +30,13 @@ services:
     shm_size: 512m
     volumes:
       - data:/data
-      - edge:/run/openmausbot
+      - edge:/run/ftbot
     environment:
       OMB_PORT: "8799"
       OMB_WEBHOOK_PORT: "8800"
       # What Caddy connects to (deploy/Caddyfile).
-      OMB_TUNNEL_SOCKET: /run/openmausbot/http.sock
-      OMB_WEBHOOK_SOCKET: /run/openmausbot/hooks.sock
+      OMB_TUNNEL_SOCKET: /run/ftbot/http.sock
+      OMB_WEBHOOK_SOCKET: /run/ftbot/hooks.sock
       # what the app prints as hook URLs — Caddy passes /hooks/* straight through
       OMB_WEBHOOK_PUBLIC_URL: https://${DOMAIN}
       # pairing links for remote clients point here (docs/self-hosting.md)
@@ -52,10 +52,10 @@ services:
       OMB_SIGNIN_SMTP_URL:
       OMB_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
-      # container in once first: docker compose exec omb openmausbot login --relay
+      # container in once first: docker compose exec omb ftbot login --relay
       OMB_PHONE_RELAY:
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q ftbot"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -76,7 +76,7 @@ services:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - edge:/run/openmausbot
+      - edge:/run/ftbot
       - caddy_data:/data
       - caddy_config:/config
 

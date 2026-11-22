@@ -16,9 +16,9 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 15403,
-  "src/state/store.tsx": 3288,
-  "electron/main.mjs": 3135,
+  "server/index.ts": 15407, // FTbot: +4 for the main-bot rule (server/ftbot-main-bot.ts)
+  "src/state/store.tsx": 3290, // FTbot: +2 to ignore the Cloud checkout
+  "electron/main.mjs": 3136, // FTbot: +1 for the MausBot Cloud switch
   "server/store.ts": 2265,
   "src/components/Sidebar.tsx": 1674,
   "server/drivers/claude.ts": 2082,

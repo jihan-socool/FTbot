@@ -1,5 +1,5 @@
 // The home on a customer-run server: the MausBot server its owner installed with Docker Compose (deploy/install.sh:
-// project `openmausbot`, service `omb`, Caddy in front, the data in a folder beside the Compose file). The connector
+// project `ftbot`, service `omb`, Caddy in front, the data in a folder beside the Compose file). The connector
 // attaches to it and never makes a second one: it starts and stops those containers, copies that folder, and hands an
 // update to the server's own updater. It never writes the owner's settings and never picks the home's image itself.
 import { randomBytes } from "node:crypto";
@@ -15,7 +15,7 @@ import type { CopyInfo, HomeHealth, HomeReport, HomeState, JobError, JobReply, J
 import { BACKUPS_KEPT, HOME_STOP_TIMEOUT_S, LABELS, NAMES } from "./settings.ts";
 import type { HomeRecord, Operation, StateStore } from "./state.ts";
 
-export const COMPOSE_PROJECT = "openmausbot";
+export const COMPOSE_PROJECT = "ftbot";
 const SERVICE = "omb";
 const FRONT = "caddy";
 const PROJECT_LABEL = "com.docker.compose.project";

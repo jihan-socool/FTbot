@@ -50,7 +50,7 @@ In a terminal, `serve` checks the address and prints one pairing block:
 
 ```
 MausBot 0.1.147 · server "hetzner-1"
-data: /home/maus/.openmausbot
+data: /home/maus/.ftbot
 Reach    https://maus.example.com   ✓ answers as this server (11:04)
 
 Pairing code   7KQ2-M9XD-H4TP   works once, until 11:14 · everything
@@ -78,7 +78,7 @@ hetzner-1** finishes. You can also type the address (`maus.example.com`,
 
 `serve` with no way in mints no code. It lists the ways in instead. Every
 command the CLI prints starts the way you started it (`npx openmausbot`,
-`openmausbot`, `pnpm omb`, or `docker compose exec omb openmausbot`), so you
+`ftbot`, `pnpm omb`, or `docker compose exec omb ftbot`), so you
 can paste it as is.
 
 ### Already have cloudflared, Caddy or nginx in front
@@ -103,7 +103,7 @@ From a checkout of the repository:
 
 ```sh
 docker compose up -d --build                  # http://localhost:8080 on this machine
-docker compose exec omb openmausbot pair      # a code, and a sign-in link for this machine's browser
+docker compose exec omb ftbot pair      # a code, and a sign-in link for this machine's browser
 ```
 
 To pair from other devices on the same network, publish the port there and
@@ -111,7 +111,7 @@ name the address they use:
 
 ```sh
 OMB_BIND_ADDRESS=0.0.0.0 OMB_PUBLIC_URL=http://192.168.1.20:8080 docker compose up -d
-docker compose exec omb openmausbot pair      # Link http://192.168.1.20:8080/pair#code=…
+docker compose exec omb ftbot pair      # Link http://192.168.1.20:8080/pair#code=…
 ```
 
 Do this only on a machine behind your router. A machine with a public address
@@ -121,16 +121,16 @@ would answer the whole internet over plain http. More options are in
 ### Docker with your own domain
 
 On a fresh Ubuntu 22.04 or 24.04 server (x86-64), one command checks the
-server, installs MausBot under `/opt/openmausbot` and ends with HTTPS on your
+server, installs MausBot under `/opt/ftbot` and ends with HTTPS on your
 domain:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --domain maus.example.com
-cd /opt/openmausbot && sudo docker compose exec omb openmausbot pair   # Link https://<DOMAIN>/pair#code=…
+cd /opt/ftbot && sudo docker compose exec omb ftbot pair   # Link https://<DOMAIN>/pair#code=…
 ```
 
 Add `--check` to only check the server. Running it again repairs;
-`sudo /opt/openmausbot/update.sh` updates, with a copy of the data first;
+`sudo /opt/ftbot/update.sh` updates, with a copy of the data first;
 `--uninstall` stops the server and keeps your data. The checks, the files it
 writes and what it contacts are in
 [Deploy on a VPS](deploy-vps.md#quick-start-one-command-on-your-own-domain).
@@ -138,10 +138,10 @@ writes and what it contacts are in
 By hand, on any system with Docker:
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/jihan-socool/FTbot && cd FTbot/deploy
 cp .env.example .env                          # set DOMAIN (and ENGINES)
 docker compose pull omb && docker compose up -d
-docker compose exec omb openmausbot pair      # Link https://<DOMAIN>/pair#code=…
+docker compose exec omb ftbot pair      # Link https://<DOMAIN>/pair#code=…
 ```
 
 Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker-with-https-on-your-own-domain).
@@ -167,20 +167,20 @@ npx openmausbot pair
 |---|---|---|
 | "That's a pairing code. Also enter the server's address, like http://192.168.1.20:8799." | A code went into the address field. | Type the server's address in the first field; the code moves to its own field. |
 | "http://… is on the open internet and isn't encrypted…" | A plain http link to a public address. | Use its https address, or put HTTPS in front: `--public-url` behind cloudflared or Caddy, `--domain`, or `--tailscale`. |
-| "This points at this computer (127.0.0.1), not at the server." | A link to `127.0.0.1` or `localhost`, which is the computer you're on. | Use the address other devices reach the server at: run `openmausbot pair` on the server, or choose a way in. |
+| "This points at this computer (127.0.0.1), not at the server." | A link to `127.0.0.1` or `localhost`, which is the computer you're on. | Use the address other devices reach the server at: run `ftbot pair` on the server, or choose a way in. |
 | "Can't reach 192.168.1.20:8799. Check the server is running and reachable from this computer." | Nothing answers there. | Start it with a way in (`serve --lan` for this network), and check a firewall allows the port. |
 | "maus.example.com doesn't exist yet." / "…certificate isn't valid yet." | DNS or the certificate isn't ready. | Wait for the DNS record, or give a new server a minute. |
 | "That address answers, but it isn't a MausBot server." | Something else answers there, often a proxy pointing at the wrong port. | Point it at `http://127.0.0.1:8799`. |
-| "That's a sign-in code from an email…" / "That code is for the phone app…" / "That's a script key…" | The wrong kind of code. | On the server, run `openmausbot pair` for a 12-character pairing code. |
+| "That's a sign-in code from an email…" / "That code is for the phone app…" / "That's a script key…" | The wrong kind of code. | On the server, run `ftbot pair` for a 12-character pairing code. |
 | "Too many wrong codes. Try again at 11:19." | Five wrong codes in five minutes from one address. | Wait until then, or make a new code. |
-| `Reach    ✗ https://… doesn't reach this server (connection refused).` | Your tunnel or proxy doesn't reach port 8799. | Point it at `http://127.0.0.1:8799`, then run `openmausbot status`. |
+| `Reach    ✗ https://… doesn't reach this server (connection refused).` | Your tunnel or proxy doesn't reach port 8799. | Point it at `http://127.0.0.1:8799`, then run `ftbot status`. |
 | `Reach    ✗ https://… answers as a different server.` | The address leads to another MausBot server. | Point the tunnel at this machine's port. |
 | `Reach    … https://… doesn't answer yet` (`--domain`) | DNS isn't pointing here yet, or ports 80 and 443 are closed. | Fix the A record and open the ports; the certificate follows. |
 | `--lan: this machine has no private network address…` | A VPS with only a public address. | Use `--public-url`, `--domain` or `--tailscale`. |
 | `tailscale: HTTPS certificates are off for this tailnet, so this server listens on http://…` | Tailscale can't serve HTTPS yet, so the server listens on its own tailnet address. It works, and only your tailnet reaches it. | For an `https://` address, turn on HTTPS certificates at https://login.tailscale.com/admin/dns, then run `serve --tailscale` again. |
 | `No MausBot server is running here. Start it: … serve` | `pair` found no server on this port. | Start it, or pass the server's `--port` and `--data-dir`. |
-| `Get a pairing code: openmausbot pair` and no code | The server runs as a service or under `docker compose logs`, where codes stay out of logs. | Run that command in a terminal. |
-| "This shared server takes no pairing commands from this machine." | The server runs with `OMB_LOOPBACK_TRUST=service`. | Let people sign in with their email (`openmausbot access add you@example.com`), or pair from a signed-in admin's Settings. |
+| `Get a pairing code: ftbot pair` and no code | The server runs as a service or under `docker compose logs`, where codes stay out of logs. | Run that command in a terminal. |
+| "This shared server takes no pairing commands from this machine." | The server runs with `OMB_LOOPBACK_TRUST=service`. | Let people sign in with their email (`ftbot access add you@example.com`), or pair from a signed-in admin's Settings. |
 
 ## Reference
 
@@ -221,7 +221,7 @@ it (for services and scripts). The [setup guide](cli-onboarding.md) explains
 the choices. The npm package does not include engine CLIs (`claude`,
 `codex`, …); setup can install and sign in the supported ones. Run setup,
 engine sign-ins and the server as the same unprivileged user: engine
-credentials live in that user's home, not all under `.openmausbot`. For a
+credentials live in that user's home, not all under `.ftbot`. For a
 Linux service, the [VPS guide](deploy-vps.md#before-you-start) covers the
 account, engines and browser libraries. After installing browser libraries
 as administrator, run `npx openmausbot browser install` as the service user
@@ -229,7 +229,7 @@ too.
 
 - **`--public-url URL`**: you already have HTTPS in front. The address must
   be https, or http on a private network. After start, `serve` fetches
-  `URL/.well-known/openmausbot/environment` and prints whether it answers
+  `URL/.well-known/ftbot/environment` and prints whether it answers
   with this server's own id. The pairing link uses that address either way.
 - **`--domain NAME`**: point the domain's A record at this machine and open
   ports 80 and 443. The server downloads a pinned Caddy once into its data
@@ -266,7 +266,7 @@ too.
   never as the owner. That listener gzips JSON replies of 1 KB or more when
   the client accepts gzip; the loopback port never compresses.
   `npx openmausbot logout` releases the address. The account credentials
-  live in `~/.openmausbot/tunnel-account.json` (mode 0600). Started from a
+  live in `~/.ftbot/tunnel-account.json` (mode 0600). Started from a
   fleet or a container, where nobody can type an emailed code? Set
   `OMB_INSTALLATION_CREDENTIAL` to the installation credential the fleet
   issued and skip `login`. The address and connector token are fetched at
@@ -275,7 +275,7 @@ too.
 
 Later: `npx openmausbot pair --label "Kitchen iPad"` for another device
 (`--phone` for one that may chat but not change settings), and
-`npx openmausbot devices` to see or sign them out. `openmausbot serve` is a
+`npx openmausbot devices` to see or sign them out. `ftbot serve` is a
 plain foreground process. For unattended use, run `service install` (above)
 or follow the [systemd example](deploy-vps.md#keep-it-running). Restarting a
 service never downloads a new release on its own.
@@ -359,7 +359,7 @@ use the [local Compose setup](../deploy/local/README.md). It defaults to
 `http://localhost:8080` and supports optional `.env` overrides.
 
 On Ubuntu, the [installer](deploy-vps.md#quick-start-one-command-on-your-own-domain)
-sets this up with one command, keeping the data in `/opt/openmausbot/data`.
+sets this up with one command, keeping the data in `/opt/ftbot/data`.
 The rest of this section is the same setup by hand.
 
 One tenant = one container for the server plus Caddy for HTTPS.
@@ -367,7 +367,7 @@ Requirements: Docker with Compose, a DNS name pointing at the machine, and
 ports 80/443 open.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/jihan-socool/FTbot && cd FTbot/deploy
 cp .env.example .env            # set DOMAIN
 docker compose pull omb && docker compose up -d
 ```
@@ -386,7 +386,7 @@ pairing code for your first device:
 
 ```sh
 docker compose exec omb claude                       # each CLI you listed in ENGINES
-docker compose exec omb openmausbot pair             # prints a code, a link and a QR
+docker compose exec omb ftbot pair             # prints a code, a link and a QR
 ```
 
 Paste the link (`https://<DOMAIN>/pair#code=…`) into MausBot under **＋ →
@@ -445,16 +445,16 @@ hold. The server image (`ghcr.io/milind-soni/openmausbot`) is built for that:
   starts itself again under the image's tini, which then stays process 1; an
   init of the platform's own on top (`docker run --init`, Compose's
   `init: true`) does no harm. A command you give the container runs as
-  written, so start it with `openmausbot …` or `node …`
-  (`docker run --rm ghcr.io/milind-soni/openmausbot openmausbot --version`):
-  a bare `--version` or `dist-server/openmausbot.js`, which older images
+  written, so start it with `ftbot …` or `node …`
+  (`docker run --rm ghcr.io/milind-soni/openmausbot ftbot --version`):
+  a bare `--version` or `dist-server/ftbot.js`, which older images
   passed on to Node, no longer starts.
 - **Chrome does not need a larger `/dev/shm`.** Where `/dev/shm` is under
   512 MB the bots' browser keeps its shared memory in `/tmp`, so there is
   nothing to set. `/tmp` is slower, and where it is itself in memory (Cloud
   Run) it counts against the container's memory limit; a 512 MB `/dev/shm`,
   where your platform lets you set one, avoids both.
-- **Mount a volume at `/data`.** Engine sign-ins and all of OpenMausBot's
+- **Mount a volume at `/data`.** Engine sign-ins and all of FTbot's
   state live there.
 - **Give the platform a way in.** The server listens on `127.0.0.1` inside
   the container, which a proxy outside the container cannot reach. Any one
@@ -476,7 +476,7 @@ hold. The server image (`ghcr.io/milind-soni/openmausbot`) is built for that:
     with no forwarding header and a loopback `Host` is taken to be the
     server's owner.
   - A tunnel that dials out, so nothing has to reach the container:
-    `openmausbot serve --tunnel` as the start command ([`--tunnel`](#ways-in-in-detail)).
+    `ftbot serve --tunnel` as the start command ([`--tunnel`](#ways-in-in-detail)).
 
 **How many processes and how much memory.** A container's process limit
 (`pids.max`; Docker's `--pids-limit`, Kubernetes' `podPidsLimit`) counts
@@ -590,11 +590,11 @@ Requirements: Node 24+, pnpm, and at least one agent CLI installed and
 signed in on the server.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot
+git clone https://github.com/jihan-socool/FTbot && cd FTbot
 pnpm install
 
 # choose where data lives and start the server
-OMB_DATA_DIR="$HOME/.openmausbot" OMB_PORT=8799 \
+OMB_DATA_DIR="$HOME/.ftbot" OMB_PORT=8799 \
   node --experimental-strip-types server/index.ts
 ```
 
@@ -605,11 +605,11 @@ npx openmausbot service install --domain maus.example.com   # or --public-url, -
 ```
 
 It renders a systemd unit (Linux) or a launchd agent (macOS) that runs the
-same `openmausbot serve …` with your options, restarts it if it stops, and,
+same `ftbot serve …` with your options, restarts it if it stops, and,
 for `--domain`, grants the unit the capability to bind ports 80 and 443
 without root. The file is written next to your data and the two commands
 that install and start it are printed (they need `sudo` on Linux).
-`openmausbot service uninstall` prints the reverse. Run from `npx`, it
+`ftbot service uninstall` prints the reverse. Run from `npx`, it
 first installs a copy of the same version into `<data dir>/app/<version>`,
 because npm may prune its npx cache. The unit points at that copy. Not being
 a terminal, the service writes no pairing code into its log: run
@@ -665,8 +665,8 @@ Providers added with `opencode auth login` work everywhere.
 
 ## Many client workspaces on one server
 
-`openmausbot fleet` runs one workspace per client on a single Linux server,
-each as its own OS user, its own `openmausbot@<name>` service on its own
+`ftbot fleet` runs one workspace per client on a single Linux server,
+each as its own OS user, its own `ftbot@<name>` service on its own
 loopback ports, its own data folder, brand, sign-in list and provider key,
 reached at `<name>.<your domain>` through the system Caddy. Bots of one
 workspace cannot read another's files or reach its API: the data lives in a
@@ -678,7 +678,7 @@ Once, as root, with the package installed permanently and a wildcard DNS
 record (`*.example.com`) pointing at the server:
 
 ```sh
-openmausbot fleet init --domain example.com
+ftbot fleet init --domain example.com
 ```
 
 That writes the template unit, the fence and its unit, the workspace folders,
@@ -686,14 +686,14 @@ and adds `import /etc/caddy/omb.d/*.caddy` to `/etc/caddy/Caddyfile`. Then per
 client:
 
 ```sh
-openmausbot fleet create acme --admin owner@acme.test --member @acme.test \
+ftbot fleet create acme --admin owner@acme.test --member @acme.test \
   --brand /root/acme-brand.json --anthropic-key-file /root/acme-anthropic.key \
   --cap 50 --memory 1G
-openmausbot fleet users acme add bob@acme.test --chat-only
-openmausbot fleet list
-openmausbot fleet suspend acme      # 503 page, service stopped; resume undoes it
-openmausbot fleet upgrade           # new release, then every running workspace restarted in turn
-openmausbot fleet delete acme --yes # add --keep-data to keep the home folder
+ftbot fleet users acme add bob@acme.test --chat-only
+ftbot fleet list
+ftbot fleet suspend acme      # 503 page, service stopped; resume undoes it
+ftbot fleet upgrade           # new release, then every running workspace restarted in turn
+ftbot fleet delete acme --yes # add --keep-data to keep the home folder
 ```
 
 Give `init` `--operator USER` (the Unix user your own workspace runs as; the
@@ -702,7 +702,7 @@ root service on a Unix socket only that user may open. Your workspace then
 shows **Settings → Installations** (with the enterprise `admin` feature): create
 an installation, add or remove who may sign in, suspend, resume, delete, upgrade
 all, and see each one's spend this month. Every action goes through the
-agent's audit log at `/var/log/openmausbot/fleet.jsonl`.
+agent's audit log at `/var/log/ftbot/fleet.jsonl`.
 
 `https://acme.example.com` is up when `create` returns; the first admin signs
 in with an emailed code. `OMB_LICENSE_KEY` in the environment (or
@@ -737,7 +737,7 @@ reach it. On the server:
 ```sh
 npx openmausbot pair                         # npm install
 pnpm omb pair                                # from a checkout
-docker compose exec omb openmausbot pair     # Docker
+docker compose exec omb ftbot pair     # Docker
 ```
 
 It prints a 12-character pairing code (it works once, for 10 minutes, or up
@@ -775,7 +775,7 @@ use the apps on this computer's screen, and run the MCP servers you keep for
 it, while the app is open. Folders and the terminal are added in **Settings →
 Servers**, where each server of yours has a **Share this computer** switch and
 **Choose what it can use**; the switch turns it off at once, and the menu bar's
-OpenMausBot item pauses it with your Clouds. The server needs nothing turned on:
+FTbot item pauses it with your Clouds. The server needs nothing turned on:
 it takes a computer from its owner's pairings only, and a phone code or another
 person's pairing is never asked. Set `features.sharedComputers` to `false` in the
 server's config to turn this off, or to `true` to let every paired session lend
@@ -817,7 +817,7 @@ To move by hand instead, export a backup from this computer in **Settings →
 Import & export → Export backup**, then import it on the server in **Settings → Import & export
 → Import backup**. API keys, engine sign-ins and paired devices stay where they
 are on both sides; routines arrive paused. An older desktop app's **Copy this
-computer here** is answered with "Update OpenMausBot to bring your bots here by
+computer here** is answered with "Update FTbot to bring your bots here by
 itself."
 
 Only conversations you start yourself on that server can use what you share;
@@ -855,7 +855,7 @@ and take a 5-minute ticket from `POST /api/auth/stream-ticket` for the
 event stream, because `EventSource` cannot set headers:
 `GET /api/events?ticket=…`.
 
-`GET /.well-known/openmausbot/environment` is public and tells a client what
+`GET /.well-known/ftbot/environment` is public and tells a client what
 it is talking to: a stable `environmentId`, the label, the version and
 capabilities. Saved connections check the id so a reused address that now
 points at a different server is refused loudly.
@@ -865,7 +865,7 @@ address of its own:
 
 ```sh
 ssh -L 8799:localhost:8799 you@your-server
-# then run `openmausbot pair` on the server and open the "Browser on this machine" link it prints
+# then run `ftbot pair` on the server and open the "Browser on this machine" link it prints
 ```
 
 The browser signs in once through the tunnel, like any browser on the server
@@ -881,7 +881,7 @@ server, even when it runs on the same machine. Programs are unaffected: the
 CLI, scripts, `curl` and the companion send neither header.
 
 So the first time you open the web UI in a browser on the server's own
-machine, it shows the sign-in page. With no way in, `openmausbot pair` prints
+machine, it shows the sign-in page. With no way in, `ftbot pair` prints
 a link for it:
 
 ```
@@ -889,7 +889,7 @@ a link for it:
 ```
 
 Open it and choose **Connect** (or type the code on the sign-in page); the browser
-keeps its session cookie from then on. `openmausbot` (the guided start) prints
+keeps its session cookie from then on. `ftbot` (the guided start) prints
 the same link when it opens the browser. The desktop app is unaffected:
 its window adds the app's own per-launch owner header to every request and
 WebSocket it sends to its server, and no other Electron session may reach the
@@ -938,19 +938,19 @@ it too and is always `service` (docs/cloud-pro.md).
 
 With `service` on a self-hosted server:
 
-- `openmausbot serve` in a terminal still prints the first pairing code. It
+- `ftbot serve` in a terminal still prints the first pairing code. It
   hands the server it starts a one-off secret over the server's stdin (never
   its environment, which every engine inherits), and that secret opens the
   pairing route for that CLI alone. Pass `--no-pair` to skip the code; if
   the server refuses one anyway, `serve` says why and keeps running. Not in
   a terminal (a service), it prints no code and points at email sign-in.
-- `openmausbot pair` and `openmausbot devices`, run later from another
+- `ftbot pair` and `ftbot devices`, run later from another
   terminal, are refused like any other admin change and say so. Pair from
   the server's Settings while signed in as an admin, or let people sign
-  in with their email (`openmausbot access add you@example.com`, which edits
+  in with their email (`ftbot access add you@example.com`, which edits
   the sign-in list on disk).
 - A browser on an SSH tunnel gets the sign-in page instead of the app.
-- The MCP server script works with `OPENMAUSBOT_TOKEN` set to a paired session.
+- The MCP server script works with `FTBOT_TOKEN` set to a paired session.
 
 **What `service` does not close yet.** Any bot's shell can still do
 everything the Slack worker does, and on a shared workspace that is a real
@@ -990,8 +990,8 @@ npx openmausbot access list
 ```
 
 An entry is an address or `@domain` (everyone at that domain). Admins get
-the same access as a pairing code from `openmausbot serve`; users get the
-chat-only scope, the same as `openmausbot pair --phone`. The same lists live
+the same access as a pairing code from `ftbot serve`; users get the
+chat-only scope, the same as `ftbot pair --phone`. The same lists live
 in `config.json` under `signIn.admins` and `signIn.members` and can be changed
 through the settings API without a restart. An environment variable that
 names someone wins over its list, which is how a container or a service unit
@@ -999,13 +999,13 @@ is bootstrapped; while it does, Settings refuses to change that list and says
 which variable to change instead. One that is empty, as `.env.example` and the
 Compose files leave them, leaves the list to Settings.
 
-The code itself comes from `accounts.openmausbot.com`, the OpenMausBot
+The code itself comes from `accounts.openmausbot.com`, the FTbot
 account service, so your server needs no email credentials. Your server asks
 it to send the code, checks the answer, and then issues its own session
 cookie: the browser only ever talks to your server, and who is welcome is
 decided only by your allow-list. Wrong codes count against a lockout of
 their own: ten in a minute from one address pause sign-in there for a minute. Sessions from a sign-in show the email in
-`openmausbot devices` and can be revoked the same way.
+`ftbot devices` and can be revoked the same way.
 
 To send the codes through your own mail server instead, so nobody signs in
 through the account service and no MausBot account is made, give the server
@@ -1013,7 +1013,7 @@ an SMTP address:
 
 ```sh
 OMB_SIGNIN_SMTP_URL="smtps://signin%40yourcompany.com:PASSWORD@smtp.yourcompany.com:465"
-OMB_SIGNIN_SMTP_FROM="OpenMausBot <signin@yourcompany.com>"   # else the user name, if it is an address
+OMB_SIGNIN_SMTP_FROM="FTbot <signin@yourcompany.com>"   # else the user name, if it is an address
 ```
 
 `smtps://` uses TLS from the start (port 465); `smtp://` upgrades with
@@ -1043,7 +1043,7 @@ hosted workspace refuses them.
 
 ### Who may answer a card
 
-Approval cards are the provider's own (see the approval modes); OpenMausBot
+Approval cards are the provider's own (see the approval modes); FTbot
 adds none. On a workspace several people share — portal membership, or an
 email sign-in list that names users — it narrows only whose answer counts,
 and only when the card can be traced to a person:
@@ -1187,7 +1187,7 @@ is the reference implementation.
 
 In a paired admin browser, as in the desktop app, **Take control** turns the
 Computer panel's picture into the live desktop for Local VMs and your own VPS,
-through the same address as OpenMausBot; **Full screen** fills the window with
+through the same address as FTbot; **Full screen** fills the window with
 the same session. Shared, per-bot and pool Local VMs connect through their
 managed container's loopback port. VPS desktops connect
 through an SSH tunnel opened by the server. Neither needs an additional public
@@ -1223,21 +1223,21 @@ creates a one-time code with a QR right in the browser, and lists every
 paired device with a sign-out button. Nobody needs the command line.
 
 The iOS app pairs with a server the same way a laptop does: scan the QR
-code that `openmausbot serve` (or `openmausbot pair`) prints, paste the
+code that `ftbot serve` (or `ftbot pair`) prints, paste the
 whole `https://host/pair#code=…` link into the address field on the pairing
 screen, or type the address and then the code. The phone gets a session of
-its own, listed and revocable with `openmausbot devices`. What it may do is
-the code's scope: a code from `openmausbot pair` carries `admin` and the app
-shows everything; a code from `openmausbot pair --phone` (also what the
+its own, listed and revocable with `ftbot devices`. What it may do is
+the code's scope: a code from `ftbot pair` carries `admin` and the app
+shows everything; a code from `ftbot pair --phone` (also what the
 guided phone setup mints) can chat, approve and read, and the app hides
 creating bots and sections, changing models, generating avatars, connecting
 apps and cloud desktops — those stay with the owner. A server reinstalled at
 the same address has a new identity; the app then asks to pair again rather
 than present the old session to it.
 
-Both native apps pair this way. `openmausbot pair --phone android` prints the
+Both native apps pair this way. `ftbot pair --phone android` prints the
 app-scheme QR that Android's scanner needs, and the iOS app accepts either
-that QR or the web link, for example `docker compose exec omb openmausbot
+that QR or the web link, for example `docker compose exec omb ftbot
 pair --phone android --public-url https://your-domain`. `pair` never asks
 questions, so it works the same from a script. Nothing extra to install, and
 the phone becomes a session like any other.
@@ -1245,7 +1245,7 @@ the phone becomes a session like any other.
 Older way, still supported, and only useful on a LAN or a tailnet: run the
 companion sidecar next to the harness and pair by its own QR. It advertises
 on your private networks (Tailscale-aware) and issues its own per-device
-credentials, which are **not** `openmausbot devices` and are revoked from
+credentials, which are **not** `ftbot devices` and are revoked from
 its own page at the `127.0.0.1:8811/#token=…` link it prints. It also serves phones over cleartext HTTP
 on port 8810, so do not expose it from a public server. It ships only in a
 git checkout: neither the npm package nor the Docker image contains it.
@@ -1356,7 +1356,7 @@ unless its status still says signed out.
 
 ### Which engine a new bot uses
 
-A saved default model (Settings, `openmausbot setup`, or the New Bot
+A saved default model (Settings, `ftbot setup`, or the New Bot
 defaults) always wins. Without one, new bots get the first engine that can
 run, in this order: a Claude account, a ChatGPT plan, Gemini, Grok, then the
 rest in the order of `instances`; OpenCode running only Zen's free no-login
@@ -1475,8 +1475,8 @@ shutdown): settings
 sessions, webhooks, MCP servers, engines and keys, bots created, deleted or
 given different permissions, spend limits and prices, and who can see a bot.
 Each row names who acted — the session's email or device label, `This
-computer` for the owner, `Command line` for `openmausbot` commands such as
-`openmausbot access add` — and the values before and after. Values are
+computer` for the owner, `Command line` for `ftbot` commands such as
+`ftbot access add` — and the values before and after. Values are
 redacted: anything under a key that names a credential, every value in a
 headers or environment map, the value after a flag such as `--api-key` or
 `-k`, URL parameters such as `?key=`, a token before a URL's host
@@ -1555,8 +1555,8 @@ umask 077
 BOT_ID=your-bot-id
 THREAD_ID=your-existing-thread-id
 TOKEN=$(openssl rand -hex 32)
-printf '{ "%s": {"token":"%s","threadId":"%s"} }\n' "$BOT_ID" "$TOKEN" "$THREAD_ID" > ~/.openmausbot/external-runtimes.json
-chmod 600 ~/.openmausbot/external-runtimes.json
+printf '{ "%s": {"token":"%s","threadId":"%s"} }\n' "$BOT_ID" "$TOKEN" "$THREAD_ID" > ~/.ftbot/external-runtimes.json
+chmod 600 ~/.ftbot/external-runtimes.json
 ```
 
 Keep the file private (`600` on Unix; restrict its Windows file permissions).
@@ -1695,9 +1695,9 @@ routine's run row, or in the Chief's "Problems to look at" chat.
 | `OMB_ROUTINE_FAILURE_SPACING_MS` | `3600000` (1 hour) | How long after the failure that starts the spacing the next run waits. From `60000`. |
 | `OMB_ROUTINE_FAILURE_SPACING_MAX_MS` | `14400000` (4 hours) | How long after each later failure the next run waits. Never below `OMB_ROUTINE_FAILURE_SPACING_MS`. |
 | `OMB_CHIEF_INCIDENT_TURNS_PER_HOUR` | `6` | The turns a Chief of Staff is started for problems in an hour, across all the chats it hears about. Past that, the Chief is not started: you are notified of each such problem, and one line in its "Problems to look at" chat counts them, names the first five chats they came from and links the newest. From `1`. |
-| `OMB_STARTUP_ROUTINE_GAP_MS` | `1800000` (30 minutes) | On a server not started by the desktop app, how soon after the start that last ran them routines set to "Also run when OpenMausBot starts" may run again. A start within that time leaves one row per routine: "Not run at 4 starts because OpenMausBot started again soon after the start that last ran it". `0` runs them at every start. |
+| `OMB_STARTUP_ROUTINE_GAP_MS` | `1800000` (30 minutes) | On a server not started by the desktop app, how soon after the start that last ran them routines set to "Also run when FTbot starts" may run again. A start within that time leaves one row per routine: "Not run at 4 starts because FTbot started again soon after the start that last ran it". `0` runs them at every start. |
 | `OMB_ROUTINE_RESTART_STAGGER_MS` | `30000` (30 seconds) | The time between the runs a restart cut off as each starts again, so they do not all start at once. From `0`. |
-| `OMB_BURST_PART_MAX_RESTARTS` | `2` | The times a burst's part, or its merge, starts again after a restart cut it off. Past that the part fails with "Not started again: OpenMausBot restarted while this part ran 3 times.", and the parts are posted as they came instead of merged. From `0`. |
+| `OMB_BURST_PART_MAX_RESTARTS` | `2` | The times a burst's part, or its merge, starts again after a restart cut it off. Past that the part fails with "Not started again: FTbot restarted while this part ran 3 times.", and the parts are posted as they came instead of merged. From `0`. |
 
 A routine every minute (`* * * * *`) is still accepted and is spaced out the
 same way. Identical failures are told to you and to the Chief once: two
@@ -1778,7 +1778,7 @@ server with the stable version; `OMB_UPDATE_CHANNEL=newest` makes it follow
 every release instead.
 
 A server installed with the [installer](deploy-vps.md#quick-start-one-command-on-your-own-domain)
-updates with `sudo /opt/openmausbot/update.sh`, which the installer puts there.
+updates with `sudo /opt/ftbot/update.sh`, which the installer puts there.
 Its admins can also press **Update server** in **Settings → Updates**, which runs
 that same script on the server; a Docker checkout gets the button with
 `sudo deploy/update-runner.sh --install`. Until the bots' sandbox is on for
@@ -1789,7 +1789,7 @@ what it can and cannot do](deploy-vps.md#from-the-app-update-server).
 
 ```sh
 cd deploy && git pull && ./update.sh                                    # Docker: copy the data, update, roll back on failure
-git pull && pnpm install && sudo systemctl restart openmausbot          # from source
+git pull && pnpm install && sudo systemctl restart ftbot          # from source
 ```
 
 `deploy/update.sh` is the whole routine for a Docker Compose install: the
@@ -1805,7 +1805,7 @@ update an earlier run left unfinished.
 For the npm service there is no one-command updater yet:
 [do the same steps by hand](deploy-vps.md#paths-a-and-c-npm-with-the-service-above-the-same-steps-by-hand),
 as the service user while the server is stopped. For a foreground invocation,
-`npx --yes openmausbot@X.Y.Z serve --tunnel` selects a particular published
+`npx --yes ftbot@X.Y.Z serve --tunnel` selects a particular published
 release; replace `X.Y.Z` with that version.
 
 The desktop and phone apps work with any server version that was the stable

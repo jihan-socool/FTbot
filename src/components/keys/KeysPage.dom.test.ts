@@ -3,6 +3,7 @@ import { createElement, Fragment } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FTBOT_PAID_OFFERS } from "@/lib/ftbot";
 import { setLocale } from "@/lib/i18n";
 
 const fx = vi.hoisted(() => ({
@@ -379,7 +380,7 @@ describe("Boat's credit offer on the Boat card", () => {
     vi.unstubAllGlobals();
   });
 
-  it("is always on the Boat card while the offer runs: with no key, a saved key, one a Cloud plan includes, and after its popup closed", () => {
+  it.skipIf(!FTBOT_PAID_OFFERS)("is always on the Boat card while the offer runs: with no key, a saved key, one a Cloud plan includes, and after its popup closed", () => {
     page(); openComputers();
     for (const box of [{ configured: false }, { configured: true, last4: "c3d4" }, { configured: false, included: true }]) {
       setConfig({ ...fx.config, box });
@@ -398,7 +399,7 @@ describe("Boat's credit offer on the Boat card", () => {
     expect(rowsShown()).toContain("box"); expect(offer()!.closest("[hidden]")).toBeNull();
   });
 
-  it("Get Boat opens boat.dev and the claim drafts the email to Boat; both stay for a later visit and save nothing", async () => {
+  it.skipIf(!FTBOT_PAID_OFFERS)("Get Boat opens boat.dev and the claim drafts the email to Boat; both stay for a later visit and save nothing", async () => {
     const openExternal = vi.fn(async () => true);
     (window as unknown as { ogb?: unknown }).ogb = { openExternal };
     page(); openComputers();

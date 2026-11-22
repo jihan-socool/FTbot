@@ -50,7 +50,7 @@ async function boot(extra: Record<string, string> = {}) {
   const started = spawn(process.execPath, verificationServerArgs(env), { env, stdio: ["ignore", fd, fd] });
   closeSync(fd);
   const url = `http://127.0.0.1:${port}`;
-  await waitFor(async () => (await fetch(`${url}/api/health`).then((r) => r.json(), () => null) as { app?: string } | null)?.app === "openmausbot", 30_000);
+  await waitFor(async () => (await fetch(`${url}/api/health`).then((r) => r.json(), () => null) as { app?: string } | null)?.app === "ftbot", 30_000);
   return { child: started, dataDir: dir, logPath: log, base: url };
 }
 
@@ -122,12 +122,12 @@ describe("serve --relay", () => {
     const session = await waitFor(() => phone(reply.token).catch(() => null), 8_000);
     expect(json(await http(session, "GET", "/api/auth/session", { token: reply.token }))).toMatchObject({ kind: "session", id: reply.device.id, scopes: ["client"] });
     // No session, a loopback Host and the CLI's owner header: still a remote request through the relay.
-    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: base.slice("http://".length), "x-openmausbot-cli": "1" } });
+    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: base.slice("http://".length), "x-ftbot-cli": "1" } });
     expect(spoofed.status).toBe(403);
     // Chat-only stays chat-only: the server's own scope rule answers.
     expect((await http(session, "POST", "/api/auth/pairing", { token: reply.token, body: "{}", headers: { "content-type": "application/json" } })).status).toBe(403);
 
-    // `openmausbot devices revoke`: the phone hears it inside the encryption.
+    // `ftbot devices revoke`: the phone hears it inside the encryption.
     expect((await owner(`/api/auth/sessions/${reply.device.id}`, { method: "DELETE" })).status).toBe(200);
     await session.closed;
     expect(session.removed).toBe(true);

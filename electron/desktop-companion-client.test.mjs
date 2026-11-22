@@ -49,7 +49,7 @@ describe("desktop companion endpoint", () => {
     ]);
     expect(desktopCompanionRendererArguments("http://127.0.0.1:8798", access)).toEqual([
       "--omb-local-origin=http://127.0.0.1:8798",
-      "--openmausbot-remote-client",
+      "--ftbot-remote-client",
     ]);
   });
 
@@ -226,7 +226,7 @@ describe("desktop companion pairing", () => {
         requestId: "request-https-03",
         fetchImpl,
       }),
-    ).rejects.toThrow("OpenMausBot HTTPS companion address");
+    ).rejects.toThrow("FTbot HTTPS companion address");
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 

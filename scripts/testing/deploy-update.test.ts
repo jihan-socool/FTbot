@@ -48,8 +48,8 @@ function install(target: Record<string, unknown> = {}, extra: Record<string, unk
   const data = join(fake, "volumes", "deploy_data");
   mkdirSync(join(root, "bin"));
   mkdirSync(deploy);
-  mkdirSync(join(data, ".openmausbot"), { recursive: true });
-  writeFileSync(join(data, ".openmausbot", "bots.json"), '[{"name":"Mira"}]');
+  mkdirSync(join(data, ".ftbot"), { recursive: true });
+  writeFileSync(join(data, ".ftbot", "bots.json"), '[{"name":"Mira"}]');
   writeFileSync(join(data, "started-by.txt"), "0.1.150\n");
   copyFileSync(SCRIPT, join(deploy, "update.sh"));
   writeFileSync(join(deploy, "docker-compose.yml"), "services: {}\n");
@@ -341,7 +341,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     const box = install();
     const before = tree(box.data);
     expect(box.run().status).toBe(0);
-    writeFileSync(join(box.data, ".openmausbot", "bots.json"), "[]");
+    writeFileSync(join(box.data, ".ftbot", "bots.json"), "[]");
     const declined = box.run(["--rollback"], { input: "no\n" });
     expect(declined.status).toBe(4);
     expect(box.state().containers.omb.image).toBe(NEW.id);
@@ -373,7 +373,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     expect(moving.env()).toBe(`${ENV}OMB_IMAGE=${OLD.refs[1]}\n`);
   });
 
-  // A hardened server answers `openmausbot doctor` without a session with a refusal, so before the server's own count
+  // A hardened server answers `ftbot doctor` without a session with a refusal, so before the server's own count
   // the check that a bot can still start never ran there.
   it("checks a hardened version's engines with the server's own count, where doctor is refused", () => {
     const hardened = { counts: true, doctor: false };
@@ -391,7 +391,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
   it("moves an install the installer made with Caddy in the server's network to the current files, and back on rollback", () => {
     const box = install();
     const oldCompose = `# Written by MausBot's installer (deploy/install.sh), and written again each time it runs.
-name: openmausbot
+name: ftbot
 services:
   omb:
     image: \${OMB_IMAGE:?run the installer again}
@@ -411,8 +411,8 @@ services:
     expect((statSync(join(box.deploy, ".update")).mode & 0o777).toString(8)).toBe("700");
     const compose = readFileSync(join(box.deploy, "compose.yaml"), "utf8");
     expect(compose).not.toContain("network_mode");
-    expect(compose).toContain("- edge:/run/openmausbot");
-    expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toContain("reverse_proxy unix//run/openmausbot/http.sock");
+    expect(compose).toContain("- edge:/run/ftbot");
+    expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toContain("reverse_proxy unix//run/ftbot/http.sock");
     expect(box.run(["--rollback", "--yes"]).status).toBe(0);
     expect(readFileSync(join(box.deploy, "compose.yaml"), "utf8")).toBe(oldCompose);
     expect(readFileSync(join(box.deploy, "Caddyfile"), "utf8")).toBe(oldCaddyfile);

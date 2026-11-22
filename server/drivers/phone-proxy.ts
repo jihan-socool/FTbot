@@ -82,7 +82,7 @@ export function resolveAdbPath(env: NodeJS.ProcessEnv = process.env, platform = 
 
 async function runAdb(args: string[], options: { binary?: boolean; timeoutMs?: number } = {}): Promise<Buffer> {
   const adb = resolveAdbPath();
-  if (!adb) throw new Error("Android platform tools are unavailable. Reopen OpenMausBot or install adb.");
+  if (!adb) throw new Error("Android platform tools are unavailable. Reopen FTbot or install adb.");
   return new Promise((resolve, reject) => {
     const child = spawn(adb, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
     const stdout: Buffer[] = [];
@@ -539,9 +539,9 @@ export function createPhoneClaim(
       if (response.status === 401 || response.status === 403) {
         return { ok: false, message: "This turn no longer has phone access. Start a new turn to use the phone." };
       }
-      return { ok: false, message: "OpenMausBot could not reserve the phone for this call. This call was not performed; try again, or start a new turn if it keeps failing." };
+      return { ok: false, message: "FTbot could not reserve the phone for this call. This call was not performed; try again, or start a new turn if it keeps failing." };
     } catch {
-      return { ok: false, message: "OpenMausBot could not be reached to reserve the phone. This call was not performed; try again." };
+      return { ok: false, message: "FTbot could not be reached to reserve the phone. This call was not performed; try again." };
     }
   };
 }
@@ -703,7 +703,7 @@ async function handle(message: Json, ensureClaim: EnsureClaim) {
   const id = message.id;
   const method = message.method;
   const params = (message.params ?? {}) as Json;
-  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "openmausbot-phone", version: "1" } });
+  if (method === "initialize") return ok(id, { protocolVersion: String(params.protocolVersion ?? "2024-11-05"), capabilities: { tools: {} }, serverInfo: { name: "ftbot-phone", version: "1" } });
   if (method === "notifications/cancelled" && callsCancelled.has(params.requestId)) callsCancelled.set(params.requestId, true);
   if (method === "notifications/initialized" || method === "notifications/cancelled") return;
   if (method === "ping") return ok(id, {});

@@ -108,7 +108,7 @@ export function githubSession(connection: Extract<GithubConnection, { ok: true }
   const open = async (signal: AbortSignal) => {
     const init = await connection.relay({
       jsonrpc: "2.0", id: "omb-share-init", method: "initialize",
-      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "openmausbot-templates", version: "1" } },
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "ftbot-templates", version: "1" } },
     }, undefined, signal);
     if (init.status !== 200) throw new GithubTemplateError(`GitHub couldn't be reached through Apps (HTTP ${init.status}). Try again in a few minutes.`, 502);
     await connection.relay({ jsonrpc: "2.0", method: "notifications/initialized" }, init.transportSessionId, signal).catch(() => undefined);

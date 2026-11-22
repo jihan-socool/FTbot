@@ -81,7 +81,7 @@ function makeDerived(overrides: Partial<ReturnType<typeof useBotSettingsDerived>
     browserAllowed: true,
     browserEnabled: false,
     browserSelectable: false,
-    browserDisabledReason: "The built-in browser needs the OpenMausBot desktop app",
+    browserDisabledReason: "The built-in browser needs the FTbot desktop app",
     sectionName: "General",
     currentChief: undefined,
     botRoutines: [],
@@ -446,7 +446,7 @@ describe("working folder note", () => {
   const inFolder = (cwd: string | null, botCwd?: string) => makeBot({ ...(botCwd ? { cwd: botCwd } : {}), tasks: [{ threadId: "thread-1", cwd }] as unknown as Bot["tasks"] });
 
   it("calls a thread pinned only to a folder chosen for it, or to an earlier working folder, never to its own folder", () => {
-    for (const own of ["/data/.openmausbot/task-workspaces/bot-1/thread-1", "C:\\Users\\Ada\\.openmausbot\\task-workspaces\\bot-1\\thread-1"]) {
+    for (const own of ["/data/.ftbot/task-workspaces/bot-1/thread-1", "C:\\Users\\Ada\\.ftbot\\task-workspaces\\bot-1\\thread-1"]) {
       expect(folderCard(inFolder(own, "/projects/site"))).not.toContain("This task is pinned");
       expect(folderCard(inFolder(own))).not.toContain("This task is pinned");
     }

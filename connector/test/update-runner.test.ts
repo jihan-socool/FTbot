@@ -20,7 +20,7 @@ function run(request: string | null, options: { exit?: number; updater?: boolean
   const dir = mkdtempSync(join(tmpdir(), "omb-update-runner-"));
   dirs.push(dir);
   const update = join(dir, "update");
-  const install = join(dir, "opt-openmausbot");
+  const install = join(dir, "opt-ftbot");
   mkdirSync(update);
   mkdirSync(install);
   const called = join(dir, "called");
@@ -64,7 +64,7 @@ describe.skipIf(!posix)("mausbot-update-runner.sh", () => {
   });
 
   it("runs nothing for an image that is not MausBot's server image by digest, whatever the request says", () => {
-    for (const image of ["ghcr.io/milind-soni/openmausbot:latest", "ghcr.io/someone/openmausbot@sha256:" + "b".repeat(64), `${IMAGE} --replace-local-build`, `${IMAGE};reboot`, ""]) {
+    for (const image of ["ghcr.io/milind-soni/openmausbot:latest", "ghcr.io/someone/ftbot@sha256:" + "b".repeat(64), `${IMAGE} --replace-local-build`, `${IMAGE};reboot`, ""]) {
       const refused = run(`id=u1\nimage=${image}\n`);
       expect(refused.calls, image).toEqual([]);
       expect(refused.answer, image).toBe("id=u1\ncode=4\n");

@@ -25,7 +25,7 @@ const REAL_TOOLS = ["sed", "awk", "grep", "cat", "head", "tail", "tr", "sort", "
 const HEALTHY = {
   FAKE_UID: "0", FAKE_ARCH: "x86_64", FAKE_CPUS: "4", FAKE_FREE_GB: "80", FAKE_DOCKER: "27.3.1", FAKE_SECURITY: '["name=apparmor","name=seccomp,profile=builtin"]',
   FAKE_COMPOSE: "0", FAKE_PUBLIC_IP: "203.0.113.7", FAKE_LOCAL_IP: "10.0.0.5", FAKE_DNS: "203.0.113.7", FAKE_NOW: "1794268800", FAKE_THEIRS: "1794268790",
-  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "openmausbot",
+  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "ftbot",
   FAKE_IMAGE_ENV: '["PATH=/usr/bin","HOME=/data","OMB_IMAGE=server"]', FAKE_BOX_CHECK: BOX_PASSED, FAKE_SOURCE: "published",
 };
 
@@ -98,7 +98,7 @@ case "$*" in
   "info --format {{json .SecurityOptions}}") echo "$FAKE_SECURITY" ;;
   "info --format {{.DockerRootDir}}") echo /nonexistent/docker ;;
   "compose version") exit "$FAKE_COMPOSE" ;;
-  "ps -q --filter label=com.docker.compose.project=openmausbot --filter publish="*) printf '%s' "\${FAKE_OURS:-}" ;;
+  "ps -q --filter label=com.docker.compose.project=ftbot --filter publish="*) printf '%s' "\${FAKE_OURS:-}" ;;
   "ps -aq --filter name=mausbot-connector") printf '%s' "\${FAKE_CONNECTOR:-}" ;;
   "run --rm --network none --entrypoint id "*" -u") /usr/bin/id -u ;;
   "run --rm --network none --entrypoint id "*" -g") /usr/bin/id -g ;;
@@ -126,7 +126,7 @@ function run(args: string[], server: Server = {}, kept?: { dir: string }) {
   if (!kept) dirs.push(dir);
   const bin = join(dir, "bin");
   const sysroot = join(dir, "sysroot");
-  const install = join(dir, "opt", "openmausbot");
+  const install = join(dir, "opt", "ftbot");
   const log = join(dir, "calls.log");
   rmSync(bin, { recursive: true, force: true });
   rmSync(log, { force: true });
@@ -324,10 +324,10 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
       "docker compose up -d --remove-orphans",
       "docker compose exec -T omb node dist-server/bot-box/box-check.js --public=none",
     ]);
-    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec omb openmausbot pair --label "First admin"`);
+    expect(result.stdout).toContain(`  cd ${result.install} && sudo docker compose exec omb ftbot pair --label "First admin"`);
     // Not a terminal, as here: the admin's sign-in link is not made, so no log holds it, and the output says why.
     expect(result.stdout).toContain("(The link is not made here because this output is not a terminal");
-    expect(result.docker.some((call) => call.includes("openmausbot pair"))).toBe(false);
+    expect(result.docker.some((call) => call.includes("ftbot pair"))).toBe(false);
     expect(result.stdout).toContain("Or open https://maus.example.com/pair and sign in with an emailed code as: owner@example.com");
     expect(result.stdout).toContain(`Your data: ${result.install}/data`);
   });
@@ -360,7 +360,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const result = run(["--domain", "maus.example.com"], { env: { FAKE_STABLE: "200" } });
     expect(result.stdout).toContain("  ok    version: the stable channel");
     expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("OMB_IMAGE=ghcr.io/milind-soni/openmausbot:stable\n");
-    expect(script).not.toMatch(/openmausbot:latest/);
+    expect(script).not.toMatch(/ftbot:latest/);
     expect(result.calls.some((call) => call.includes("releases/latest"))).toBe(false);
   });
 
@@ -409,7 +409,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(readFileSync(env, "utf8").split("\n").filter((line) => /^[A-Z_]+=/.test(line))).toEqual([
       "OMB_SIGNIN_SMTP_URL=smtps://mail.example.com", "DOMAIN=maus.example.com", "OMB_IMAGE=ghcr.io/milind-soni/openmausbot:v0.1.152", "COMPOSE_FILE=compose.yaml:compose.box.yaml",
     ]);
-    expect(readFileSync(join(first.install, "compose.yaml"), "utf8")).toContain("name: openmausbot");
+    expect(readFileSync(join(first.install, "compose.yaml"), "utf8")).toContain("name: ftbot");
     expect(readFileSync(join(first.install, "data", "messages.db"), "utf8")).toBe("chats");
     const after = statSync(join(first.install, "data"));
     expect([after.mode, after.uid, after.gid]).toEqual([before.mode, before.uid, before.gid]);
@@ -619,7 +619,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(button).toBeLessThan(first.calls.indexOf("docker compose up -d --remove-orphans"));
     expect(first.stdout).toContain("  note  The app can update this server: Settings, Updates, Update server.");
     const compose = readFileSync(join(first.install, "compose.yaml"), "utf8");
-    expect(compose).toContain("      - /var/lib/openmausbot-update/request:/run/omb-update/request\n      - /var/lib/openmausbot-update/status:/run/omb-update/status:ro\n");
+    expect(compose).toContain("      - /var/lib/ftbot-update/request:/run/omb-update/request\n      - /var/lib/ftbot-update/status:/run/omb-update/status:ro\n");
     const refused = run(["--domain", "maus.example.com"], { env: { FAKE_RUNNER: "1" } });
     expect(refused.status).toBe(0);
     expect(refused.stdout).toContain(`Update it with: sudo ${refused.install}/update.sh`);
@@ -645,8 +645,8 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(settings(written)).toEqual(settings(manual));
     // The sign-in lists and mail server are passed only when .env sets them: an empty one would still be set.
     for (const name of ["OMB_SIGNIN_EMAILS", "OMB_SIGNIN_MEMBER_EMAILS", "OMB_SIGNIN_SMTP_URL", "OMB_SIGNIN_SMTP_FROM", "OMB_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
-    for (const line of ['test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]', "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
-      "- edge:/run/openmausbot", "type: tmpfs"]) {
+    for (const line of ['test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q ftbot"]', "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
+      "- edge:/run/ftbot", "type: tmpfs"]) {
       expect(written).toContain(line);
       expect(manual).toContain(line);
     }

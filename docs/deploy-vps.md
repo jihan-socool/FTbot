@@ -1,10 +1,10 @@
-# Deploy OpenMausBot on a VPS
+# Deploy FTbot on a VPS
 
 To keep MausBot and its agents on your current computer and use a VPS only as a
 bot’s remote desktop, see [Bring Your Own VPS](byo-vps.md) and the
 [published setup guide](https://docs.openmausbot.com/docs/computers/byo-vps).
 
-From a blank Linux server to OpenMausBot running on it around the clock, reachable from your laptop, the desktop app and your phone, with your bots working while every laptop is closed. It assumes nothing beyond being able to open a terminal and paste commands. About twenty minutes, most of it waiting.
+From a blank Linux server to FTbot running on it around the clock, reachable from your laptop, the desktop app and your phone, with your bots working while every laptop is closed. It assumes nothing beyond being able to open a terminal and paste commands. About twenty minutes, most of it waiting.
 
 ## Quick start: one command on your own domain
 
@@ -41,7 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy
 
 If Docker is missing, the installer asks before installing it with Docker's official script (`get.docker.com`); `--install-docker` says yes ahead of time. It installs nothing else on the server.
 
-**Then it installs** everything under one folder, `/opt/openmausbot` (`--dir` picks another):
+**Then it installs** everything under one folder, `/opt/ftbot` (`--dir` picks another):
 
 | Path | What |
 |---|---|
@@ -61,15 +61,15 @@ It runs the newest release, pinned by its version; once a `stable` channel is pu
 **Sign in as the first admin** with a one-time link made on the server. Run in a terminal, the installer makes one and prints it when it finishes. It does not when its output goes anywhere else, such as a log, because whoever reads the link can sign in as the admin until it is used or expires. To make one yourself:
 
 ```sh
-cd /opt/openmausbot && sudo docker compose exec omb openmausbot pair --label "First admin"
+cd /opt/ftbot && sudo docker compose exec omb ftbot pair --label "First admin"
 ```
 
 Open the link it prints, or paste it into the desktop app under **＋ → Connect to a server**. To sign in with an emailed code instead, run the installer with `--email you@example.com`.
 
-- **Update:** `sudo /opt/openmausbot/update.sh`, which backs the data up, checks the new version's health and puts the old one back if it fails. The installer places it once this repository has it and prints the command when it finishes; until then, running the install command again moves to the newest release. `update.sh` pins the version by digest in `.env`, and a later run of the installer keeps that pin.
+- **Update:** `sudo /opt/ftbot/update.sh`, which backs the data up, checks the new version's health and puts the old one back if it fails. The installer places it once this repository has it and prints the command when it finishes; until then, running the install command again moves to the newest release. `update.sh` pins the version by digest in `.env`, and a later run of the installer keeps that pin.
 - **Repair:** run the install command again. It checks the server, rewrites its own files and leaves `.env` and `data/` alone. That also moves an install made before Caddy got its own container: Caddy then shared the server's network, and HTTPS went down whenever the server restarted without it.
-- **Stop:** `--uninstall` stops the server and removes its containers. It deletes nothing: your data stays in `/opt/openmausbot/data`.
-- **Every other command in this guide** that starts `docker compose` for path B works from `/opt/openmausbot`.
+- **Stop:** `--uninstall` stops the server and removes its containers. It deletes nothing: your data stays in `/opt/ftbot/data`.
+- **Every other command in this guide** that starts `docker compose` for path B works from `/opt/ftbot`.
 - **What the installer contacts:** the registries and Let's Encrypt from the table, GitHub's release list, this repository's files on `raw.githubusercontent.com`, and `cloudflare.com/cdn-cgi/trace` to learn the server's public address for the DNS check. It sends no telemetry.
 - **Behind a load balancer or NAT** that forwards ports 80 and 443 to the server, set `OMB_INSTALL_SKIP_DNS=1` to skip the DNS check.
 
@@ -83,11 +83,11 @@ Three ways to make the server reachable are covered. Pick one; the rest of the g
 
 | | You need | Who can reach it | Best for |
 |---|---|---|---|
-| **A. Public address, no domain** (`serve --tunnel`) | an OpenMausBot account (email code) | anyone with a pairing code, over HTTPS | the fastest path; a phone on cellular |
+| **A. Public address, no domain** (`serve --tunnel`) | an FTbot account (email code) | anyone with a pairing code, over HTTPS | the fastest path; a phone on cellular |
 | **B. Your own domain** (Docker + Caddy) | a domain name, ports 80/443 | anyone with a pairing code, over HTTPS | a permanent address you own |
 | **C. Your Tailscale network** (`serve --tailscale`) | Tailscale on the server and your devices | only your tailnet | the most private; nothing public at all |
 
-Only need the phone app? Add `--relay` to path B or C on a machine signed in with `openmausbot login --relay` (never on a machine with a path A address), or use it on its own: the app pairs by QR through MausBot Relay, end-to-end encrypted, with no domain, open port or VPN. See [Phones through MausBot Relay](phone-relay-server.md).
+Only need the phone app? Add `--relay` to path B or C on a machine signed in with `ftbot login --relay` (never on a machine with a path A address), or use it on its own: the app pairs by QR through MausBot Relay, end-to-end encrypted, with no domain, open port or VPN. See [Phones through MausBot Relay](phone-relay-server.md).
 
 Whichever you pick, the login is the same: you **pair** each device once with a short code and it stays signed in. A session lasts 30 days; using it with half that or less left renews it to a full 30, up to 180 days from pairing (`OMB_SESSION_TTL_DAYS` and `OMB_SESSION_MAX_DAYS` change both numbers). There is no password.
 
@@ -157,13 +157,13 @@ npx openmausbot login          # once: an emailed code signs this machine in and
 npx openmausbot serve --tunnel # runs the server there and prints the pairing link with a QR code
 ```
 
-`setup` connects an AI provider; it is separate from the OpenMausBot account.
+`setup` connects an AI provider; it is separate from the FTbot account.
 Use Codex's device-code option over SSH, or enter a hidden API key for a
 chat-only connection. More engines can be added later. See [CLI setup](cli-onboarding.md).
 
-`login` asks for your email, sends an 8-digit code, and prints the address it reserved for this machine. `serve --tunnel` downloads `cloudflared` on the first run (a pinned version with a verified digest, into `~/.openmausbot`), starts the server, connects the tunnel, and after a few seconds prints `tunnel: live at https://…`. Leave it running; see "Keep it running" for a service.
+`login` asks for your email, sends an 8-digit code, and prints the address it reserved for this machine. `serve --tunnel` downloads `cloudflared` on the first run (a pinned version with a verified digest, into `~/.ftbot`), starts the server, connects the tunnel, and after a few seconds prints `tunnel: live at https://…`. Leave it running; see "Keep it running" for a service.
 
-The account credentials live in `~/.openmausbot/tunnel-account.json`, readable only by your user. `npx openmausbot logout` releases the address.
+The account credentials live in `~/.ftbot/tunnel-account.json`, readable only by your user. `npx openmausbot logout` releases the address.
 
 Skip to "Install and sign the engines in".
 
@@ -184,7 +184,7 @@ The [installer](#quick-start-one-command-on-your-own-domain) does these steps fo
 3. **Get the deploy files and set the name:**
 
    ```sh
-   git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+   git clone https://github.com/jihan-socool/FTbot && cd FTbot/deploy
    cp .env.example .env
    nano .env                # DOMAIN=maus.example.com ; ENGINES=@anthropic-ai/claude-code @openai/codex
    ```
@@ -204,7 +204,7 @@ The [installer](#quick-start-one-command-on-your-own-domain) does these steps fo
 In this path, every `npx openmausbot …` command below is run inside the container instead:
 
 ```sh
-docker compose exec omb openmausbot pair --label "My MacBook"
+docker compose exec omb ftbot pair --label "My MacBook"
 ```
 
 ## Path C: only your Tailscale network
@@ -224,13 +224,13 @@ the image. For paths A and C, install Linux system libraries once from the
 administrator shell:
 
 ```sh
-sudo -H npx --yes openmausbot browser install --with-deps
+sudo -H npx --yes ftbot browser install --with-deps
 ```
 
 Then install the browser in the service account's home, from the `maus` shell:
 
 ```sh
-npx --yes openmausbot browser install
+npx --yes ftbot browser install
 ```
 
 The administrator's browser download is in a different home; it does not install
@@ -244,7 +244,7 @@ gets its own isolated session whose logins persist across restarts.
 
 ## Install and sign the engines in
 
-The npm OpenMausBot package does not install model engine CLIs. For paths A and C,
+The npm FTbot package does not install model engine CLIs. For paths A and C,
 install the engine you use in the service account, then sign it in. For example,
 from the `maus` shell, for Claude:
 
@@ -260,7 +260,7 @@ engines you use. For path B, run the installed CLI inside the container, for
 example `docker compose exec omb claude`.
 
 Engine logins belong to the service user's home (for example `~/.codex` and
-`~/.claude`), separately from OpenMausBot's `~/.openmausbot`. Keep that home when
+`~/.claude`), separately from FTbot's `~/.ftbot`. Keep that home when
 restarting or upgrading. The systemd example below includes `~/.local/bin` in PATH.
 
 ## Pair your first device
@@ -302,16 +302,16 @@ install a chosen release first, from the `maus` shell. Replace `X.Y.Z` with the
 published version you want to run:
 
 ```sh
-npm install --global --prefix "$HOME/.local" openmausbot@X.Y.Z
+npm install --global --prefix "$HOME/.local" ftbot@X.Y.Z
 ```
 
 Stop the foreground server with Ctrl-C before enabling the service. From the
-administrator shell, save this as `/etc/systemd/system/openmausbot.service`:
+administrator shell, save this as `/etc/systemd/system/ftbot.service`:
 
 ```ini
-# /etc/systemd/system/openmausbot.service
+# /etc/systemd/system/ftbot.service
 [Unit]
-Description=OpenMausBot server
+Description=FTbot server
 After=network-online.target
 
 [Service]
@@ -319,7 +319,7 @@ User=maus
 WorkingDirectory=/home/maus
 Environment=HOME=/home/maus
 Environment=PATH=/home/maus/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/maus/.local/bin/openmausbot serve --tunnel
+ExecStart=/home/maus/.local/bin/ftbot serve --tunnel
 Restart=always
 RestartSec=5
 
@@ -328,8 +328,8 @@ WantedBy=multi-user.target
 ```
 
 ```sh
-sudo systemctl daemon-reload && sudo systemctl enable --now openmausbot
-journalctl -u openmausbot -f            # the server's log, including "tunnel: live at …"
+sudo systemctl daemon-reload && sudo systemctl enable --now ftbot
+journalctl -u ftbot -f            # the server's log, including "tunnel: live at …"
 ```
 
 Use `--tailscale` instead of `--tunnel` for path C. A service is not a terminal, so `serve` writes no pairing code into the journal; mint one with `npx openmausbot pair` when you need it. Docker (path B) restarts on its own (`restart: unless-stopped`).
@@ -368,7 +368,7 @@ the app says so, with `sudo ./update.sh`, which moves it to the stable version
 once that is newer than the build.
 
 The installer sets this up, and every run of the installer refreshes it. In a
-checkout of this repository, add it from `OpenMausBot/deploy` (it needs
+checkout of this repository, add it from `FTbot/deploy` (it needs
 systemd, and restarts the server once), and run the same command again after
 each `git pull`: until you do, the button runs nothing and the app shows this
 command.
@@ -377,9 +377,9 @@ command.
 git pull && sudo ./update-runner.sh --install
 ```
 
-That places `/usr/local/sbin/openmausbot-update-runner`, the systemd units
-`openmausbot-update.path` and `openmausbot-update.service`, and root's folder
-`/var/lib/openmausbot-update`: root's own copy of `update.sh`, which is what
+That places `/usr/local/sbin/ftbot-update-runner`, the systemd units
+`ftbot-update.path` and `ftbot-update.service`, and root's folder
+`/var/lib/ftbot-update`: root's own copy of `update.sh`, which is what
 the button runs, `request`, which the server's container writes, and `status`,
 which it reads and cannot write. One install per server: a second folder is
 refused until `--remove` on the first, and `--remove` for any other folder
@@ -460,7 +460,7 @@ command to run on the server instead.
 
 ### Path B (Docker): one command, with a way back
 
-From `OpenMausBot/deploy`:
+From `FTbot/deploy`:
 
 ```sh
 git pull && ./update.sh
@@ -469,15 +469,15 @@ git pull && ./update.sh
 `git pull` brings the current `update.sh` and `docker-compose.yml`; the server
 image comes from the stable channel, not from your checkout. An install that
 has no checkout, with its `compose.yaml`, `.env` and `data/` in one folder such
-as `/opt/openmausbot`, runs the same script on that folder:
+as `/opt/ftbot`, runs the same script on that folder:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/update.sh -o update.sh
-sudo bash update.sh --dir /opt/openmausbot
+sudo bash update.sh --dir /opt/ftbot
 ```
 
 An install made with the installer (`deploy/install.sh`) already has `update.sh` in
-its folder: `sudo /opt/openmausbot/update.sh`.
+its folder: `sudo /opt/ftbot/update.sh`.
 
 Until a first version has been made stable, `./update.sh` takes the newest
 release instead, as **Check for updates** does then.
@@ -493,7 +493,7 @@ every file's owner and mode either way. The script then:
    volumes, stops the server, checks that it has stopped, and copies
    everything under `/data` into a new Docker volume named for the update
    (`deploy_data-before-update-20261110T120000Z`;
-   `openmausbot_data-before-update-…` for `/opt/openmausbot`). It then
+   `ftbot_data-before-update-…` for `/opt/ftbot`). It then
    compares the copy with the data, every file by checksum; a copy that does
    not match is thrown away, the server is started again, and nothing has
    changed. The copy from the update before is removed only after this one
@@ -508,7 +508,7 @@ every file's owner and mode either way. The script then:
 4. Waits, up to two minutes (`OMB_UPDATE_WAIT_S` for longer), until the new server answers `/api/health`
    steadily, says it is the new version, can still start a bot if it could
    before (the server's own count of ready engines, `GET /api/health/engines`,
-   which a hardened server answers too; `openmausbot doctor` on a version
+   which a hardened server answers too; `ftbot doctor` on a version
    without it), and Caddy runs again.
 5. If any of that fails: puts back the data from the copy, `.env` and the old
    image, starts the old version, and tells you what went wrong. Your server
@@ -585,29 +585,29 @@ There is no one-command updater for an npm install yet. Do what the script
 does: copy the data first, install one named version, check it, and keep the
 way back. Take the stable version number from
 [`stable.json`](https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json)
-(`"version"`), and note the one you run now (`openmausbot --version`). From
+(`"version"`), and note the one you run now (`ftbot --version`). From
 the administrator shell, replacing `X.Y.Z`:
 
 ```sh
-sudo systemctl stop openmausbot
-sudo -iu maus sh -c 'umask 077; tar czf ~/openmausbot-before-update.tgz -C ~ .openmausbot && chmod 600 ~/openmausbot-before-update.tgz'
-sudo -iu maus npm install --global --prefix /home/maus/.local openmausbot@X.Y.Z
-sudo systemctl start openmausbot
-curl -sf http://127.0.0.1:8799/api/health && sudo -iu maus openmausbot doctor
+sudo systemctl stop ftbot
+sudo -iu maus sh -c 'umask 077; tar czf ~/ftbot-before-update.tgz -C ~ .ftbot && chmod 600 ~/ftbot-before-update.tgz'
+sudo -iu maus npm install --global --prefix /home/maus/.local ftbot@X.Y.Z
+sudo systemctl start ftbot
+curl -sf http://127.0.0.1:8799/api/health && sudo -iu maus ftbot doctor
 ```
 
 If the install fails, or the last line does not end with the server answering
 and an engine ready, go back (replace `OLD` with the version you noted):
 
 ```sh
-sudo systemctl stop openmausbot
-sudo -iu maus npm install --global --prefix /home/maus/.local openmausbot@OLD
-sudo -iu maus sh -c 'mv ~/.openmausbot ~/.openmausbot-failed-update && tar xzf ~/openmausbot-before-update.tgz -C ~'
-sudo systemctl start openmausbot
+sudo systemctl stop ftbot
+sudo -iu maus npm install --global --prefix /home/maus/.local ftbot@OLD
+sudo -iu maus sh -c 'mv ~/.ftbot ~/.ftbot-failed-update && tar xzf ~/ftbot-before-update.tgz -C ~'
+sudo systemctl start ftbot
 ```
 
 A service restart by itself does not update the installed package. For
-foreground `npx` usage, name the release: `npx --yes openmausbot@X.Y.Z serve --tunnel`.
+foreground `npx` usage, name the release: `npx --yes ftbot@X.Y.Z serve --tunnel`.
 
 ### How far behind a server may fall
 
@@ -621,7 +621,7 @@ Routines and queued work survive a restart. A teammate turn running at that mome
 ## Back up
 
 Stop the server before copying its SQLite database: Ctrl-C for a foreground
-process, or `sudo systemctl stop openmausbot` from the administrator shell for
+process, or `sudo systemctl stop ftbot` from the administrator shell for
 the service above. Stop any engine processes and managed desktops still writing
 files you intend to back up.
 
@@ -630,9 +630,9 @@ credentials, and paired sessions). Run it from the service account's shell:
 
 ```sh
 umask 077
-backup_dir=$(mktemp -d "$PWD/openmausbot-backup.XXXXXX")
-tar czf "$backup_dir/openmausbot-data.tgz" -C "$HOME" .openmausbot
-chmod 600 "$backup_dir/openmausbot-data.tgz"
+backup_dir=$(mktemp -d "$PWD/ftbot-backup.XXXXXX")
+tar czf "$backup_dir/ftbot-data.tgz" -C "$HOME" .ftbot
+chmod 600 "$backup_dir/ftbot-data.tgz"
 ```
 
 A full backup also needs your engine credential/configuration paths, such as
@@ -642,34 +642,34 @@ any configured home/data-directory overrides, and workspaces outside the app
 directory. These are not included in the command above.
 
 For path B, the whole `/data` volume includes the container's CLI homes. From
-`OpenMausBot/deploy`, stop the whole project before archiving, and start it
+`FTbot/deploy`, stop the whole project before archiving, and start it
 again after; `deploy_data` is the default volume name, so use your actual
 volume name if you changed the Compose project:
 
 ```sh
 docker compose stop
-backup_dir=$(mktemp -d "$PWD/openmausbot-backup.XXXXXX")
-docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/openmausbot-data.tgz -C /data . && chmod 600 /b/openmausbot-data.tgz'
+backup_dir=$(mktemp -d "$PWD/ftbot-backup.XXXXXX")
+docker run --rm -v deploy_data:/data:ro -v "$backup_dir":/b alpine sh -c 'umask 077; tar czf /b/ftbot-data.tgz -C /data . && chmod 600 /b/ftbot-data.tgz'
 docker compose start
 ```
 
 To restore that archive, with the project stopped, replace what is in the
-volume with it (`openmausbot-backup.XXXXXX` is the folder the backup made):
+volume with it (`ftbot-backup.XXXXXX` is the folder the backup made):
 
 ```sh
 docker compose stop
-docker run --rm -v deploy_data:/data -v "$PWD/openmausbot-backup.XXXXXX":/b:ro alpine sh -c 'find /data -mindepth 1 -delete && tar xzpf /b/openmausbot-data.tgz -C /data'
+docker run --rm -v deploy_data:/data -v "$PWD/ftbot-backup.XXXXXX":/b:ro alpine sh -c 'find /data -mindepth 1 -delete && tar xzpf /b/ftbot-data.tgz -C /data'
 docker compose start
 ```
 
-With the installer, the data is the folder `/opt/openmausbot/data`. This backs
-it up, with `.env`, into an archive in `/opt/openmausbot/backups`, the whole
+With the installer, the data is the folder `/opt/ftbot/data`. This backs
+it up, with `.env`, into an archive in `/opt/ftbot/backups`, the whole
 project stopped and started again around it. The folder is `700` and the archive
 `600` whatever the server's umask or the folder's default ACLs, since the archive
 holds every chat, key and session:
 
 ```sh
-cd /opt/openmausbot && sudo docker compose stop && sudo sh -c 'set -e; install -d -m 700 backups; f="backups/backup-$(date -u +%Y%m%dT%H%M%SZ).tgz"; (umask 077; tar --warning=no-file-ignored -czf "$f" data .env); chmod 600 "$f"'; sudo docker compose start
+cd /opt/ftbot && sudo docker compose stop && sudo sh -c 'set -e; install -d -m 700 backups; f="backups/backup-$(date -u +%Y%m%dT%H%M%SZ).tgz"; (umask 077; tar --warning=no-file-ignored -czf "$f" data .env); chmod 600 "$f"'; sudo docker compose start
 ```
 
 Copy the archive to another machine and keep it private.
@@ -682,18 +682,18 @@ data takes its place, with its owner and permissions. An archive without a
 `data/` folder changes nothing:
 
 ```sh
-cd /opt/openmausbot && sudo docker compose stop && sudo sh -c 'set -e; tar -tzf backups/backup-20261110T153000Z.tgz data/ >/dev/null; rm -rf data.before-restore; mv data data.before-restore; tar -xzpf backups/backup-20261110T153000Z.tgz data'; sudo docker compose start
+cd /opt/ftbot && sudo docker compose stop && sudo sh -c 'set -e; tar -tzf backups/backup-20261110T153000Z.tgz data/ >/dev/null; rm -rf data.before-restore; mv data data.before-restore; tar -xzpf backups/backup-20261110T153000Z.tgz data'; sudo docker compose start
 ```
 
 Once MausBot runs on the restored data, remove the old copy:
-`sudo rm -rf /opt/openmausbot/data.before-restore`. The restore leaves `.env` as
+`sudo rm -rf /opt/ftbot/data.before-restore`. The restore leaves `.env` as
 it is. On a new server, install first with the same `--domain`, then restore.
 
 Each path B backup creates a fresh private folder in the current directory, so it
 cannot overwrite an older archive with more permissive access. Keep the
 archive inside that folder privately on another machine. Restore paths A and C
 with the server stopped, using the same paths and original ownership. After
-backup or restore, start the service with `sudo systemctl start openmausbot`.
+backup or restore, start the service with `sudo systemctl start ftbot`.
 Stop and start the Docker project as a whole, as above, rather than `omb` on
 its own.
 
@@ -705,13 +705,13 @@ Read this before putting anything else in front of the server.
 - A request that arrives through a proxy or the tunnel is treated as remote and needs a session, whatever headers it carries. A proxy of your own (nginx, Traefik, Cloudflare Tunnel) must forward the real `Host` and add `X-Forwarded-For` and `X-Forwarded-Proto`, must not buffer the event stream, and must **not** rewrite `Host` to `127.0.0.1`.
 - Pairing is the login. Want a second wall in front of it? Path B's `Caddyfile` has a commented `basic_auth` block for a shared password.
 - The session cookie is marked `Secure`; do not serve this over plain HTTP on the public internet.
-- The one thing a stranger can read is `/.well-known/openmausbot/environment` (the server's id, label, version, capabilities) and `/api/health` (only the app name). Everything else answers "pair this device".
+- The one thing a stranger can read is `/.well-known/ftbot/environment` (the server's id, label, version, capabilities) and `/api/health` (only the app name). Everything else answers "pair this device".
 
 ## Troubleshooting
 
 **`serve --tunnel` says "no account on this machine yet".** Run `npx openmausbot login` on this machine first; the credentials are per machine.
 
-**The server does not start and says its data "was written by a newer OpenMausBot".** An older version was started on data a newer one had already changed, which happens when a version is put back without its data. Nothing was changed. Install the version the message names (or a newer one), or put back the copy of the data from before that update.
+**The server does not start and says its data "was written by a newer FTbot".** An older version was started on data a newer one had already changed, which happens when a version is put back without its data. Nothing was changed. Install the version the message names (or a newer one), or put back the copy of the data from before that update.
 
 **The tunnel stays on "retrying".** The server is running and usable locally; the public hop is not verified yet. Wait a minute (Cloudflare needs a moment on a fresh address), then check `journalctl`/the terminal for the reason. If it never comes up, `npx openmausbot logout && npx openmausbot login` issues a fresh address.
 
@@ -725,9 +725,9 @@ Read this before putting anything else in front of the server.
 
 **A bot says the engine is not signed in.** Sign that engine in again on the server.
 
-**What does the server think it is?** `https://<address>/.well-known/openmausbot/environment` is public and shows its id, label, version and capabilities; `npx openmausbot status` prints the same on the server.
+**What does the server think it is?** `https://<address>/.well-known/ftbot/environment` is public and shows its id, label, version and capabilities; `npx openmausbot status` prints the same on the server.
 
-**Something else.** `journalctl -u openmausbot --since -10m` (or `docker compose logs omb --tail 100`) shows the server's startup lines. Paste them with your question in the community channel.
+**Something else.** `journalctl -u ftbot --since -10m` (or `docker compose logs omb --tail 100`) shows the server's startup lines. Paste them with your question in the community channel.
 
 ### Ubuntu 24.04 browser sandbox
 
@@ -748,13 +748,13 @@ placeholder, not a fixed Chrome release. Copy the whole directory, including its
 libraries, to a new location that the service user cannot modify:
 
 ```sh
-sudo install -d -o root -g root -m 0755 /opt/openmausbot-browser
-sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/openmausbot-browser/
-sudo chown -R root:root /opt/openmausbot-browser/chrome-VERSION
-sudo chmod -R go-w /opt/openmausbot-browser/chrome-VERSION
+sudo install -d -o root -g root -m 0755 /opt/ftbot-browser
+sudo cp -R /home/maus/.agent-browser/browsers/chrome-VERSION /opt/ftbot-browser/
+sudo chown -R root:root /opt/ftbot-browser/chrome-VERSION
+sudo chmod -R go-w /opt/ftbot-browser/chrome-VERSION
 ```
 
-Save this as the root-owned `/etc/apparmor.d/openmausbot-chrome`, replacing
+Save this as the root-owned `/etc/apparmor.d/ftbot-chrome`, replacing
 `VERSION` with the same value. Keep the exact executable path: a wildcard under
 the writable service home would also allow replacement executables.
 
@@ -762,7 +762,7 @@ the writable service home would also allow replacement executables.
 abi <abi/4.0>,
 include <tunables/global>
 
-profile openmausbot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=(unconfined) {
+profile ftbot-chrome /opt/ftbot-browser/chrome-VERSION/chrome flags=(unconfined) {
   userns,
 }
 ```
@@ -770,15 +770,15 @@ profile openmausbot-chrome /opt/openmausbot-browser/chrome-VERSION/chrome flags=
 Load the profile:
 
 ```sh
-sudo apparmor_parser -r /etc/apparmor.d/openmausbot-chrome
+sudo apparmor_parser -r /etc/apparmor.d/ftbot-chrome
 ```
 
 Add the following line under `[Service]` in the systemd unit above, again using
 the exact installed version, then run `sudo systemctl daemon-reload` and
-`sudo systemctl restart openmausbot`:
+`sudo systemctl restart ftbot`:
 
 ```ini
-Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/openmausbot-browser/chrome-VERSION/chrome
+Environment=AGENT_BROWSER_EXECUTABLE_PATH=/opt/ftbot-browser/chrome-VERSION/chrome
 ```
 
 For a foreground server, export `AGENT_BROWSER_EXECUTABLE_PATH` to that same

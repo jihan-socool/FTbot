@@ -1,4 +1,4 @@
-// What `openmausbot serve` and `openmausbot pair` print for a pairing code. A browser on this computer is no longer the
+// What `ftbot serve` and `ftbot pair` print for a pairing code. A browser on this computer is no longer the
 // owner just by being here, so it signs in once with the link printed for it.
 import qrcode from "qrcode-terminal";
 
@@ -9,7 +9,7 @@ import type { PhoneRelayStatus } from "./phone-relay.ts";
 export function desktopOwnedRefusal(status: number, body: unknown): string | null {
   const error = (body as { error?: unknown } | null)?.error;
   if (status !== 403 || typeof error !== "string" || !error.includes("must come from the desktop app")) return null;
-  return "The OpenMausBot desktop app runs this server, so it only pairs devices from the app itself: open OpenMausBot on this computer and use Settings → Phone & devices.";
+  return "The FTbot desktop app runs this server, so it only pairs devices from the app itself: open FTbot on this computer and use Settings → Phone & devices.";
 }
 
 /** A clock time a code works until: "11:22", or "tomorrow 11:22" / a date when it runs past today. */
@@ -91,7 +91,7 @@ const isStatus = (value: unknown): value is PhoneRelayStatus =>
   typeof value === "object" && value !== null && typeof (value as PhoneRelayStatus).grant === "string" && typeof (value as PhoneRelayStatus).relay === "string";
 
 /** Until the control plane tells a server from a desktop, a machine that takes a relay token gives back its tunnel. */
-export const RELAY_NOT_WITH_TUNNEL = "--relay cannot be used on a machine whose saved choice is a tunnel address: a relay token would make the tunnel go for good. Start with --local, or use the relay on a machine signed in with `openmausbot login --relay`.";
+export const RELAY_NOT_WITH_TUNNEL = "--relay cannot be used on a machine whose saved choice is a tunnel address: a relay token would make the tunnel go for good. Start with --local, or use the relay on a machine signed in with `ftbot login --relay`.";
 
 /** Why phones cannot pair through the relay yet, in words for the person at the terminal; empty when they can. */
 export function relayProblemLines(status: PhoneRelayStatus | null, prefix: string): string[] {
