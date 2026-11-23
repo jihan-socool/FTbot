@@ -283,6 +283,26 @@ describe("bots sharing one browser", () => {
     expect((await tabs(comments)).map((tab) => tab.url).sort()).toEqual(["https://example.com/comments", "https://example.com/inbox"]);
   });
 
+  it("types a saved login into the calling bot's own tab, brought to the front, never into another bot's", async () => {
+    const { comments, messages, service, target } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    const front = () => service.profiles()[0]!.active()?.page.url();
+    expect(front()).toBe("https://example.com/inbox");
+    let typedInto: string | undefined;
+    await service.withSecretInput(target, async () => { typedInto = front(); return { ok: true, text: "filled" }; }, "comments");
+    expect(typedInto).toBe("https://example.com/form");
+  });
+
+  it("refuses to type a saved login for a bot whose every open tab is another bot's", async () => {
+    const { comments, service, target } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    let ran = false;
+    await expect(service.withSecretInput(target, async () => { ran = true; return { ok: true, text: "filled" }; }, "messages"))
+      .rejects.toThrow("You have no tab open: the open ones belong to other bots that share this browser.");
+    expect(ran).toBe(false);
+  });
+
   it("frees the tabs of a bot that no longer uses the browser, for the bots that still share it", async () => {
     const using = new Set(["comments", "messages"]);
     const { comments, messages, tabs, text } = shared(undefined, { usesBrowser: (_session, botId) => using.has(botId) });

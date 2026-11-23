@@ -254,7 +254,7 @@ export class RuntimeRouter {
 
   withSecretInput<T extends { ok: boolean; text: string; held?: { url: string; ms: number } }>(session: string, spec: Spec, fn: () => Promise<T>, ctx?: StepContext): Promise<T> {
     const target = chromeTarget(session, spec);
-    return target ? this.#chrome.service.withSecretInput(target, fn) : this.#old.withSecretInput(session, spec, fn, ctx);
+    return target ? this.#chrome.service.withSecretInput(target, fn, ctx?.botId ?? null) : this.#old.withSecretInput(session, spec, fn, ctx);
   }
 
   heldBy(session: string): string | null {

@@ -22,7 +22,7 @@ import { isUnanswered } from "./cdp/errors.ts";
 import type { CdpPage } from "./cdp/page.ts";
 import { browserRoot, profileDir, profileHash, profileKind, removeProfile, workspaceId } from "./chrome/profile.ts";
 import { BROWSER_CONTROL_REFUSAL, ProfileControl, type TakeResult } from "./control.ts";
-import { executeTool, personUrl, toolFailure, type ToolContext } from "./dispatch.ts";
+import { defaultTab, executeTool, personUrl, taken, toolFailure, type ToolContext } from "./dispatch.ts";
 import { installedExtensions } from "./extensions.ts";
 import { HealthShown, pageHealthLine } from "./health.ts";
 import type { HoldLimits } from "./hold.ts";
@@ -607,13 +607,23 @@ export class BrowserService {
     });
   }
 
-  /** Runs in the browser's lane, so no capture or read happens while a secret is typed; a hold it leaves is the typing tab's. */
-  async withSecretInput<T extends { ok: boolean; text: string; held?: SecretHold }>(target: BrowserTarget, fn: () => Promise<T>): Promise<T> {
+  /**
+   * Runs in the browser's lane, so no capture or read happens while a secret is typed; a hold it leaves is the typing
+   * tab's. fill_login types into the tab in front, so the calling bot's own tab is brought there first.
+   */
+  async withSecretInput<T extends { ok: boolean; text: string; held?: SecretHold }>(target: BrowserTarget, fn: () => Promise<T>, botId: string | null = null): Promise<T> {
     const profile = this.profile(target);
     const outcome = await this.#lanes.run(profile.key, async () => {
       await this.running(profile);
       return profile.control.agent(null, async () => {
-        const tab = profile.active();
+        this.#disownDeparted(profile);
+        const caller = { botId, tabs: profile.tabs, active: () => profile.active() };
+        const tab = defaultTab(caller);
+        if (tab) {
+          await taken(caller, tab).page.bringToFront();
+        } else if (profile.tabs.list().length) {
+          throw new Error("You have no tab open: the open ones belong to other bots that share this browser. Open the sign-in page with agent_browser_open first.");
+        }
         const filled = await fn();
         if (filled.held) this.#holds.hold(profile.session, { ...filled.held, ...(tab ? { tab: tab.page.targetId } : {}) });
         return filled;

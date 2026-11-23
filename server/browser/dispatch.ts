@@ -93,7 +93,7 @@ function remaining(context: ToolContext, preferred = DEFAULT_ACTION_MS): number 
   return Math.max(1_000, Math.min(preferred, context.deadline - Date.now() - FOLLOW_UP_MS));
 }
 
-type Caller = Pick<ToolContext, "botId" | "tabs" | "active">;
+export type Caller = Pick<ToolContext, "botId" | "tabs" | "active">;
 
 /** Whether the calling bot may use this tab: its own, or one no bot has taken. */
 function usable(context: Pick<ToolContext, "botId">, tab: Tab): boolean {
@@ -101,7 +101,7 @@ function usable(context: Pick<ToolContext, "botId">, tab: Tab): boolean {
 }
 
 /** The tab a call without `tab` means: the one in front when it is usable, else the bot's last, else a free one. */
-function defaultTab(context: Caller): Tab | null {
+export function defaultTab(context: Caller): Tab | null {
   const front = context.active();
   if (front && usable(context, front)) return front;
   const open = context.tabs.list().filter((tab) => usable(context, tab));
@@ -109,7 +109,7 @@ function defaultTab(context: Caller): Tab | null {
   return (context.botId === null ? undefined : context.tabs.lastUsedBy(context.botId)) ?? own.at(-1) ?? open.at(-1) ?? null;
 }
 
-function taken(context: Caller, tab: Tab): Tab {
+export function taken(context: Caller, tab: Tab): Tab {
   if (context.botId !== null) context.tabs.use(context.botId, tab);
   return tab;
 }
