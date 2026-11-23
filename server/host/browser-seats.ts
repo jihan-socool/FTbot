@@ -13,7 +13,7 @@ const POLL_MS = 250;
 export const browserResource = (session: string) => `browser:${session}`;
 
 export const browserBusyText = (waitMs: number) =>
-  "Another conversation of this bot is using this browser. This call was NOT performed. This turn gets the browser as soon as it is free: "
+  "Another conversation, of this bot or of one that shares this browser, is using it. This call was NOT performed. This turn gets the browser as soon as it is free: "
   + `to keep waiting, make a browser call again (each waits up to ${Math.round(waitMs / 1000)} seconds). Do not end your turn over this, and carry on with anything that does not need the browser.`;
 export const BROWSER_WAITED =
   "This browser is free now, but this call had to wait for it, so it was NOT performed. Call again: the next call goes through at once. "

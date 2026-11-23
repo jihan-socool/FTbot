@@ -6,7 +6,7 @@ import { BrowserControlInterrupted, type SessionControl } from "./session-contro
 
 export { BROWSER_CONTROL_REFUSAL };
 
-/** The bots' single agent id: one conversation uses a browser at a time, so tabs belong to the profile. */
+/** The one agent id every tab's SessionControl knows: one conversation uses a browser at a time. */
 export const AGENT = "bot";
 
 export interface ControlledTab {

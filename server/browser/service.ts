@@ -216,7 +216,7 @@ export class BrowserService {
       if (page.closed || run.closing) return;
       const opener = page.openerId ? profile.tabs.list().find((tab) => tab.page.targetId === page.openerId) : undefined;
       const known = profile.tabs.byPage(page);
-      const tab = known ?? profile.tabs.add(page, opener ? "page" : origin, opener?.id ?? null);
+      const tab = known ?? profile.tabs.add(page, opener ? "page" : origin, opener?.id ?? null, opener?.owner ?? null);
       if (known) return;
       profile.control.adopt(tab);
       page.auth.answerable = () => profile.hub.answersAuth();
@@ -412,7 +412,7 @@ export class BrowserService {
 
   // Bot calls.
 
-  async agentRpc(target: BrowserTarget, method: "tools/list" | "tools/call", params: unknown, beforeDispatch?: () => void): Promise<unknown> {
+  async agentRpc(target: BrowserTarget, method: "tools/list" | "tools/call", params: unknown, beforeDispatch?: () => void, botId: string | null = null): Promise<unknown> {
     if (method === "tools/list") return { tools: TOOL_LIST.map((tool) => ({ ...tool })) };
     if (method !== "tools/call") throw new Error("Unsupported browser method.");
     const profile = this.profile(target);
@@ -423,7 +423,7 @@ export class BrowserService {
     const started = performance.now();
     let result: ToolResult | null;
     try {
-      const work = () => this.#call(profile, params, deadline, beforeDispatch);
+      const work = () => this.#call(profile, params, deadline, beforeDispatch, botId);
       const call = name === RESTART_TOOL || profile.control.uncertain ? work() : this.#lanes.run(profile.key, work, this.#options.laneWaitMs);
       result = await this.#withinBudget(profile, name, call, deadline);
     } finally {
@@ -452,7 +452,7 @@ export class BrowserService {
     return profile.control.lostCall === null ? errorResult(BROWSER_STUCK) : lostCallResult(call);
   }
 
-  async #call(profile: ProfileState, params: unknown, deadline: number, beforeDispatch?: () => void): Promise<ToolResult> {
+  async #call(profile: ProfileState, params: unknown, deadline: number, beforeDispatch: (() => void) | undefined, botId: string | null): Promise<ToolResult> {
     const name = toolNameOf(params);
     const control = profile.control;
     if (name === RESTART_TOOL) {
@@ -480,7 +480,7 @@ export class BrowserService {
     if (control.owner !== null) throw new Error(BROWSER_CONTROL_REFUSAL);
     control.call = parsed.call.name;
     try {
-      const result = await executeTool(this.#context(profile, run, deadline), parsed.call);
+      const result = await executeTool(this.#context(profile, run, deadline, botId), parsed.call);
       beforeDispatch?.();
       return shapeResult(result, parsed.call.name);
     } catch (error) {
@@ -497,12 +497,13 @@ export class BrowserService {
     }
   }
 
-  #context(profile: ProfileState, run: Running, deadline: number): ToolContext {
+  #context(profile: ProfileState, run: Running, deadline: number, botId: string | null): ToolContext {
     return {
       control: profile.control,
       tabs: profile.tabs,
       browser: run.browser,
       deadline,
+      botId,
       active: () => profile.active(),
       openTab: () => this.#openTab(profile, "agent"),
       closeTab: (tab) => this.#closeTab(profile, tab),

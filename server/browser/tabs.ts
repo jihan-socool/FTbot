@@ -15,14 +15,17 @@ export interface Tab {
   readonly openerTabId: string | null;
   readonly origin: TabOrigin;
   readonly createdAt: number;
+  /** The bot whose tab this is, among the bots that share the profile; null until a bot uses it. */
+  owner: string | null;
 }
 
 export class TabRegistry {
   #next = 1;
   readonly #byId = new Map<string, Tab>();
   readonly #byTarget = new Map<string, Tab>();
+  readonly #lastUsed = new Map<string, Tab>();
 
-  add(page: CdpPage, origin: TabOrigin, openerTabId: string | null): Tab {
+  add(page: CdpPage, origin: TabOrigin, openerTabId: string | null, owner: string | null = null): Tab {
     const existing = this.#byTarget.get(page.targetId);
     if (existing) return existing;
     const tab: Tab = {
@@ -32,6 +35,7 @@ export class TabRegistry {
       openerTabId,
       origin,
       createdAt: Date.now(),
+      owner,
     };
     this.#byId.set(tab.id, tab);
     this.#byTarget.set(page.targetId, tab);
@@ -43,8 +47,20 @@ export class TabRegistry {
     if (!tab) return null;
     this.#byTarget.delete(targetId);
     this.#byId.delete(tab.id);
+    for (const [botId, used] of this.#lastUsed) if (used === tab) this.#lastUsed.delete(botId);
     void tab.control.close().catch(() => {});
     return tab;
+  }
+
+  /** The tab becomes this bot's, and the one its next call without a tab means. */
+  use(botId: string, tab: Tab): void {
+    tab.owner = botId;
+    this.#lastUsed.set(botId, tab);
+  }
+
+  lastUsedBy(botId: string): Tab | undefined {
+    const tab = this.#lastUsed.get(botId);
+    return tab && !tab.page.closed && tab.owner === botId ? tab : undefined;
   }
 
   get(id: string): Tab | undefined {
@@ -65,5 +81,6 @@ export class TabRegistry {
     for (const tab of this.#byId.values()) void tab.control.close().catch(() => {});
     this.#byId.clear();
     this.#byTarget.clear();
+    this.#lastUsed.clear();
   }
 }

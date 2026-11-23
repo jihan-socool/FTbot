@@ -236,7 +236,7 @@ export class RuntimeRouter {
     } : beforeDispatch;
     let result: unknown;
     try {
-      result = await (target ? this.#chrome.service.agentRpc(target, method, params, dispatch) : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
+      result = await (target ? this.#chrome.service.agentRpc(target, method, params, dispatch, ctx?.botId ?? null) : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
     } catch (error) {
       if (error instanceof ClaimRefused) return { isError: true, content: [{ type: "text", text: error.message }] };
       throw error;

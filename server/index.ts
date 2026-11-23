@@ -11580,8 +11580,8 @@ async function saveLoginFromCard(botId: string, threadId: string, messageId: str
 }
 
 /** Saved logins appear by site and username only. */
-function browserPromptFor(bot: { id: string; browserProfile?: string }, agentsMounted: boolean): string {
-  return browserSystemPrompt(bot.browserProfile) + (agentsMounted ? savedLoginsPrompt(botLogins.sitesFor(bot.id)) : "");
+function browserPromptFor(bot: { id: string; name: string; browser?: boolean; browserProfile?: string }, agentsMounted: boolean): string {
+  return browserSystemPrompt(bot) + (agentsMounted ? savedLoginsPrompt(botLogins.sitesFor(bot.id)) : "");
 }
 
 /** Null while the browser engine is not installed. */

@@ -42,6 +42,7 @@ import { browserEngineKind, type BrowserEngineKind } from "../browser/config.ts"
 import { parseSocks5Proxy } from "../browser/egress/policy.ts";
 import { ChromeEngine, chromeTarget, LiveRouter, profileKey, RuntimeRouter } from "../browser/engines.ts";
 import { CHROME_BROWSER_SYSTEM_PROMPT } from "../browser/prompt.ts";
+import { sharedBrowserNote } from "../ftbot-shared-browser.ts";
 import { passkeyAnnotation } from "../browser/passkey-notice.ts";
 import { LentChromeDoors, lentChromeGuidance, type ChromeLender } from "../browser/lent-chrome.ts";
 import type { ChromeRoute } from "../device-links.ts";
@@ -438,8 +439,9 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     }
     return { engine: (args) => inRunningBrowser(spec.command, env, args), ...relayInput(spec, session) };
   }
-  function browserSystemPrompt(profile: string | undefined): string {
-    return onChrome(profile) ? CHROME_BROWSER_SYSTEM_PROMPT : BUILT_IN_BROWSER_SYSTEM_PROMPT;
+  function browserSystemPrompt(bot: { id: string; name: string; browser?: boolean; browserProfile?: string }): string {
+    const chrome = onChrome(bot.browserProfile);
+    return (chrome ? CHROME_BROWSER_SYSTEM_PROMPT : BUILT_IN_BROWSER_SYSTEM_PROMPT) + sharedBrowserNote(bot, store.bots, { ownTabs: chrome });
   }
   /** The signed-in sites list reads agent-browser's saved state, which My Chrome and the new browser do not keep. */
   function signedInSitesRefusal(profile: string | undefined): string | null {
