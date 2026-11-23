@@ -157,6 +157,10 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     idleMs,
     language: deps.language,
     held: (session) => !turnResources.free(`browser:${session}`),
+    usesBrowser: (session, botId) => {
+      const bot = store.bot(botId);
+      return Boolean(bot && bot.browser !== false && browserSessionsOf(bot.id, bot.browserProfile).includes(session));
+    },
     log: (line) => console.warn(line),
   });
   const lendRefusal = deps.lendRefusal ?? ((): LendRefusal => "unproven");

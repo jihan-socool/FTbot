@@ -115,8 +115,9 @@ opened it. A call without `tab` uses the calling bot's own tab, even when
 another bot's tab is in front; a bot with no tab takes one no bot has used
 before it opens another. Another bot's tab is refused to read, act in, bring
 to the front or close, and `agent_browser_close` without `tab` closes only the
-calling bot's tabs while another bot has tabs open. Ownership lasts while the
-browser runs: after an idle close or a restart every reopened tab is free
+calling bot's tabs while another bot has tabs open. The tabs of a bot that
+leaves the profile, loses its browser or is deleted are free again at the next
+call. Ownership lasts while the browser runs: after an idle close or a restart every reopened tab is free
 again. agent-browser has no tab owners, so there bots are only told to list
 the tabs, use the one they opened and leave the others alone.
 

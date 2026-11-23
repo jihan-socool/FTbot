@@ -48,6 +48,7 @@ export interface ChromeEngineOptions {
   egressPort(key: string): Promise<number>;
   idleMs(): number;
   held?(session: string): boolean;
+  usesBrowser?(session: string, botId: string): boolean;
   egressNotice(key: string): string | null;
   language?(): string | undefined;
   log?: (line: string) => void;
@@ -99,6 +100,7 @@ export class ChromeEngine {
       maxRunning,
       idleMs: options.idleMs,
       held: options.held,
+      ...(options.usesBrowser ? { usesBrowser: options.usesBrowser } : {}),
       egressNotice: options.egressNotice,
       ...(options.log ? { log: options.log } : {}),
     });

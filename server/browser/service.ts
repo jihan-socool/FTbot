@@ -53,6 +53,8 @@ export interface BrowserServiceOptions {
   idleMs(): number;
   /** A running turn holds this session between browser calls too. */
   held?(session: string): boolean;
+  /** Whether this bot still uses this session's browser; the tabs of a bot that left it, or was deleted, are free again. */
+  usesBrowser?(session: string, botId: string): boolean;
   scrub?: (text: string) => string;
   /** What the egress gate of this profile's browser refused since it was last asked, as one line. */
   egressNotice?: (key: string) => string | null;
@@ -479,6 +481,7 @@ export class BrowserService {
     beforeDispatch?.();
     if (control.owner !== null) throw new Error(BROWSER_CONTROL_REFUSAL);
     control.call = parsed.call.name;
+    this.#disownDeparted(profile);
     try {
       const result = await executeTool(this.#context(profile, run, deadline, botId), parsed.call);
       beforeDispatch?.();
@@ -495,6 +498,11 @@ export class BrowserService {
     } finally {
       if (control.call === parsed.call.name) control.call = null;
     }
+  }
+
+  #disownDeparted(profile: ProfileState): void {
+    const uses = this.#options.usesBrowser;
+    if (uses) profile.tabs.disown((botId) => !uses(profile.session, botId));
   }
 
   #context(profile: ProfileState, run: Running, deadline: number, botId: string | null): ToolContext {

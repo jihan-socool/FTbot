@@ -58,6 +58,12 @@ export class TabRegistry {
     this.#lastUsed.set(botId, tab);
   }
 
+  /** The tabs of a bot that no longer uses this browser are free again. */
+  disown(gone: (botId: string) => boolean): void {
+    for (const tab of this.#byId.values()) if (tab.owner !== null && gone(tab.owner)) tab.owner = null;
+    for (const botId of this.#lastUsed.keys()) if (gone(botId)) this.#lastUsed.delete(botId);
+  }
+
   lastUsedBy(botId: string): Tab | undefined {
     const tab = this.#lastUsed.get(botId);
     return tab && !tab.page.closed && tab.owner === botId ? tab : undefined;
