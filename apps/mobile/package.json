@@ -1,0 +1,22 @@
+{
+  "name": "@ftbot/mobile",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FTbot for iPhone: pairs with FTbot on a Mac over Wi-Fi, end to end encrypted.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
