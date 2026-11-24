@@ -22,7 +22,7 @@ import { isUnanswered } from "./cdp/errors.ts";
 import type { CdpPage } from "./cdp/page.ts";
 import { browserRoot, profileDir, profileHash, profileKind, removeProfile, workspaceId } from "./chrome/profile.ts";
 import { BROWSER_CONTROL_REFUSAL, ProfileControl, type TakeResult } from "./control.ts";
-import { executeTool, personUrl, toolFailure, type ToolContext } from "./dispatch.ts";
+import { defaultTab, executeTool, personUrl, taken, toolFailure, type ToolContext } from "./dispatch.ts";
 import { installedExtensions } from "./extensions.ts";
 import { HealthShown, pageHealthLine } from "./health.ts";
 import type { HoldLimits } from "./hold.ts";
@@ -53,6 +53,8 @@ export interface BrowserServiceOptions {
   idleMs(): number;
   /** A running turn holds this session between browser calls too. */
   held?(session: string): boolean;
+  /** Whether this bot still uses this session's browser; the tabs of a bot that left it, or was deleted, are free again. */
+  usesBrowser?(session: string, botId: string): boolean;
   scrub?: (text: string) => string;
   /** What the egress gate of this profile's browser refused since it was last asked, as one line. */
   egressNotice?: (key: string) => string | null;
@@ -216,7 +218,7 @@ export class BrowserService {
       if (page.closed || run.closing) return;
       const opener = page.openerId ? profile.tabs.list().find((tab) => tab.page.targetId === page.openerId) : undefined;
       const known = profile.tabs.byPage(page);
-      const tab = known ?? profile.tabs.add(page, opener ? "page" : origin, opener?.id ?? null);
+      const tab = known ?? profile.tabs.add(page, opener ? "page" : origin, opener?.id ?? null, opener?.owner ?? null);
       if (known) return;
       profile.control.adopt(tab);
       page.auth.answerable = () => profile.hub.answersAuth();
@@ -412,7 +414,7 @@ export class BrowserService {
 
   // Bot calls.
 
-  async agentRpc(target: BrowserTarget, method: "tools/list" | "tools/call", params: unknown, beforeDispatch?: () => void): Promise<unknown> {
+  async agentRpc(target: BrowserTarget, method: "tools/list" | "tools/call", params: unknown, beforeDispatch?: () => void, botId: string | null = null): Promise<unknown> {
     if (method === "tools/list") return { tools: TOOL_LIST.map((tool) => ({ ...tool })) };
     if (method !== "tools/call") throw new Error("Unsupported browser method.");
     const profile = this.profile(target);
@@ -423,7 +425,7 @@ export class BrowserService {
     const started = performance.now();
     let result: ToolResult | null;
     try {
-      const work = () => this.#call(profile, params, deadline, beforeDispatch);
+      const work = () => this.#call(profile, params, deadline, beforeDispatch, botId);
       const call = name === RESTART_TOOL || profile.control.uncertain ? work() : this.#lanes.run(profile.key, work, this.#options.laneWaitMs);
       result = await this.#withinBudget(profile, name, call, deadline);
     } finally {
@@ -452,7 +454,7 @@ export class BrowserService {
     return profile.control.lostCall === null ? errorResult(BROWSER_STUCK) : lostCallResult(call);
   }
 
-  async #call(profile: ProfileState, params: unknown, deadline: number, beforeDispatch?: () => void): Promise<ToolResult> {
+  async #call(profile: ProfileState, params: unknown, deadline: number, beforeDispatch: (() => void) | undefined, botId: string | null): Promise<ToolResult> {
     const name = toolNameOf(params);
     const control = profile.control;
     if (name === RESTART_TOOL) {
@@ -479,8 +481,9 @@ export class BrowserService {
     beforeDispatch?.();
     if (control.owner !== null) throw new Error(BROWSER_CONTROL_REFUSAL);
     control.call = parsed.call.name;
+    this.#disownDeparted(profile);
     try {
-      const result = await executeTool(this.#context(profile, run, deadline), parsed.call);
+      const result = await executeTool(this.#context(profile, run, deadline, botId), parsed.call);
       beforeDispatch?.();
       return shapeResult(result, parsed.call.name);
     } catch (error) {
@@ -497,12 +500,18 @@ export class BrowserService {
     }
   }
 
-  #context(profile: ProfileState, run: Running, deadline: number): ToolContext {
+  #disownDeparted(profile: ProfileState): void {
+    const uses = this.#options.usesBrowser;
+    if (uses) profile.tabs.disown((botId) => !uses(profile.session, botId));
+  }
+
+  #context(profile: ProfileState, run: Running, deadline: number, botId: string | null): ToolContext {
     return {
       control: profile.control,
       tabs: profile.tabs,
       browser: run.browser,
       deadline,
+      botId,
       active: () => profile.active(),
       openTab: () => this.#openTab(profile, "agent"),
       closeTab: (tab) => this.#closeTab(profile, tab),
@@ -598,13 +607,23 @@ export class BrowserService {
     });
   }
 
-  /** Runs in the browser's lane, so no capture or read happens while a secret is typed; a hold it leaves is the typing tab's. */
-  async withSecretInput<T extends { ok: boolean; text: string; held?: SecretHold }>(target: BrowserTarget, fn: () => Promise<T>): Promise<T> {
+  /**
+   * Runs in the browser's lane, so no capture or read happens while a secret is typed; a hold it leaves is the typing
+   * tab's. fill_login types into the tab in front, so the calling bot's own tab is brought there first.
+   */
+  async withSecretInput<T extends { ok: boolean; text: string; held?: SecretHold }>(target: BrowserTarget, fn: () => Promise<T>, botId: string | null = null): Promise<T> {
     const profile = this.profile(target);
     const outcome = await this.#lanes.run(profile.key, async () => {
       await this.running(profile);
       return profile.control.agent(null, async () => {
-        const tab = profile.active();
+        this.#disownDeparted(profile);
+        const caller = { botId, tabs: profile.tabs, active: () => profile.active() };
+        const tab = defaultTab(caller);
+        if (tab) {
+          await taken(caller, tab).page.bringToFront();
+        } else if (profile.tabs.list().length) {
+          throw new Error("You have no tab open: the open ones belong to other bots that share this browser. Open the sign-in page with agent_browser_open first.");
+        }
         const filled = await fn();
         if (filled.held) this.#holds.hold(profile.session, { ...filled.held, ...(tab ? { tab: tab.page.targetId } : {}) });
         return filled;

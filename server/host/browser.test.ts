@@ -145,9 +145,9 @@ describe("the bots' browser host with browserEngine.engine set to chrome", () =>
 
   it("keeps a profile on the person's own Chrome on agent-browser: its prompt, and no sites list from either", () => {
     const { host } = setup("chrome");
-    expect(host.browserSystemPrompt(undefined)).toBe(CHROME_BROWSER_SYSTEM_PROMPT);
-    expect(host.browserSystemPrompt("work")).toBe(CHROME_BROWSER_SYSTEM_PROMPT);
-    expect(host.browserSystemPrompt("mine")).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
+    expect(host.browserSystemPrompt({ id: "scout", name: "scout" })).toBe(CHROME_BROWSER_SYSTEM_PROMPT);
+    expect(host.browserSystemPrompt({ id: "scout", name: "scout", browserProfile: "work" })).toBe(CHROME_BROWSER_SYSTEM_PROMPT);
+    expect(host.browserSystemPrompt({ id: "scout", name: "scout", browserProfile: "mine" })).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
     expect(host.signedInSitesRefusal("mine")).toContain("your own Chrome");
     expect(host.signedInSitesRefusal("work")).toContain("does not list signed-in sites yet");
   });
@@ -195,7 +195,7 @@ describe("the bots' browser host with browserEngine.engine set to chrome", () =>
     cfg.browserEngine = { engine: "agent-browser" };
     host.browserEngineSwitched();
     expect(host.usedBrowserSessions.has(browser!.session)).toBe(false);
-    expect(host.browserSystemPrompt(undefined)).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
+    expect(host.browserSystemPrompt({ id: "scout", name: "scout" })).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
   });
 });
 
@@ -515,9 +515,20 @@ describe("how long an unused browser stays open", () => {
 });
 
 describe("the bots' browser host by default", () => {
+  it("tells bots set to one profile that they share its browser, and how its tabs work on the engine that runs it", () => {
+    const sharing = (engine: "chrome" | undefined) => {
+      const { host, bots } = setup(engine, { bots: ["comments", "messages"] });
+      for (const bot of bots) Object.assign(bot, { browserProfile: "work" });
+      return host.browserSystemPrompt(bots[0]!);
+    };
+    expect(sharing("chrome")).toContain("You share this browser and its sign-ins with messages");
+    expect(sharing("chrome")).toContain("Each bot has its own tabs here.");
+    expect(sharing(undefined)).toContain("You share this browser and its sign-ins with messages");
+    expect(sharing(undefined)).toContain("the tab in front may be one another bot left");
+  });
   it("keeps agent-browser's prompt and status", () => {
     const { host } = setup(undefined);
-    expect(host.browserSystemPrompt(undefined)).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
+    expect(host.browserSystemPrompt({ id: "scout", name: "scout" })).toBe(BUILT_IN_BROWSER_SYSTEM_PROMPT);
     expect(host.signedInSitesRefusal("work")).toBeNull();
     expect(host.engineSummary({ kind: "engine", version: "0.37.0", myChrome: true })).toEqual({ kind: "engine", version: "0.37.0", myChrome: true, engine: "agent-browser" });
   });

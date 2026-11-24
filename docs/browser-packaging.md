@@ -98,6 +98,30 @@ personal Cloud home: on a Team Cloud and on self-hosted servers profiles stay
 built-in. Details: [the browser engine plan, step 5](plans/browser-engine.md)
 and [MausBot Cloud](cloud-pro.md#your-chrome).
 
+## Bots that share one browser
+
+Bots set to the same shared profile use one browser and one set of sign-ins,
+so several bots can run one account, such as a comments bot, a messages bot
+and a numbers bot on one TikTok account
+([plan](plans/2026-11-24-tiktok-account-operations.md)). One of them uses the
+browser at a time, for its whole turn; another bot's call waits, and a holder
+that has not used the browser for a minute gives it up to a bot that waits.
+Each bot's system prompt names the bots it shares with
+(`server/ftbot-shared-browser.ts`).
+
+On the new browser (`browserEngine.engine: "chrome"`) each tab belongs to the
+bot that used it first, and a tab a page opens belongs to the bot whose page
+opened it. A call without `tab` uses the calling bot's own tab, even when
+another bot's tab is in front; a bot with no tab takes one no bot has used
+before it opens another. Another bot's tab is refused to read, act in, bring
+to the front or close, and `agent_browser_close` without `tab` closes only the
+calling bot's tabs while another bot has tabs open. `fill_login` types into
+the calling bot's own tab, brought to the front first. The tabs of a bot that
+leaves the profile, loses its browser or is deleted are free again at the next
+call. Ownership lasts while the browser runs: after an idle close or a restart every reopened tab is free
+again. agent-browser has no tab owners, so there bots are only told to list
+the tabs, use the one they opened and leave the others alone.
+
 ## What a bot's browser can reach
 
 Every Chrome FTbot launches for a bot sends all of its connections

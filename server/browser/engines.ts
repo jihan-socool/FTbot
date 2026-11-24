@@ -48,6 +48,7 @@ export interface ChromeEngineOptions {
   egressPort(key: string): Promise<number>;
   idleMs(): number;
   held?(session: string): boolean;
+  usesBrowser?(session: string, botId: string): boolean;
   egressNotice(key: string): string | null;
   language?(): string | undefined;
   log?: (line: string) => void;
@@ -99,6 +100,7 @@ export class ChromeEngine {
       maxRunning,
       idleMs: options.idleMs,
       held: options.held,
+      ...(options.usesBrowser ? { usesBrowser: options.usesBrowser } : {}),
       egressNotice: options.egressNotice,
       ...(options.log ? { log: options.log } : {}),
     });
@@ -236,7 +238,7 @@ export class RuntimeRouter {
     } : beforeDispatch;
     let result: unknown;
     try {
-      result = await (target ? this.#chrome.service.agentRpc(target, method, params, dispatch) : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
+      result = await (target ? this.#chrome.service.agentRpc(target, method, params, dispatch, ctx?.botId ?? null) : this.#old.agentRpc(session, spec, method, params, dispatch, ctx));
     } catch (error) {
       if (error instanceof ClaimRefused) return { isError: true, content: [{ type: "text", text: error.message }] };
       throw error;
@@ -252,7 +254,7 @@ export class RuntimeRouter {
 
   withSecretInput<T extends { ok: boolean; text: string; held?: { url: string; ms: number } }>(session: string, spec: Spec, fn: () => Promise<T>, ctx?: StepContext): Promise<T> {
     const target = chromeTarget(session, spec);
-    return target ? this.#chrome.service.withSecretInput(target, fn) : this.#old.withSecretInput(session, spec, fn, ctx);
+    return target ? this.#chrome.service.withSecretInput(target, fn, ctx?.botId ?? null) : this.#old.withSecretInput(session, spec, fn, ctx);
   }
 
   heldBy(session: string): string | null {

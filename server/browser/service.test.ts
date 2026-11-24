@@ -213,6 +213,116 @@ describe("the bots' browser tools", () => {
   });
 });
 
+describe("bots sharing one browser", () => {
+  type Listed = { tab: string; url: string; active: boolean; belongsTo?: string };
+
+  function shared(startUrls?: string[], options: Partial<BrowserServiceOptions> = {}) {
+    const { service, target, text, backend } = setup(options, startUrls);
+    const as = (botId: string) => async (name: string, args: Record<string, unknown> = {}) =>
+      service.agentRpc(target, "tools/call", { name, arguments: args }, undefined, botId) as Promise<{ content: Array<{ type: string; text?: string }>; isError?: boolean }>;
+    const tabs = async (call: ReturnType<typeof as>) => JSON.parse(text(await call("agent_browser_tabs", { action: "list" }))) as Listed[];
+    return { comments: as("comments"), messages: as("messages"), tabs, text, backend, service, target };
+  }
+
+  it("gives each bot its own tab, which a call without a tab means even when another bot's tab is in front", async () => {
+    const { comments, messages, tabs, text } = shared();
+    expect(text(await comments("agent_browser_open", { url: "https://example.com/comments" }))).toContain("in t1");
+    expect(text(await messages("agent_browser_open", { url: "https://example.com/inbox" }))).toContain("in t2");
+    expect(text(await comments("agent_browser_read"))).toContain("page https://example.com/comments");
+    expect(text(await messages("agent_browser_read"))).toContain("page https://example.com/inbox");
+    expect(await tabs(comments)).toEqual([
+      expect.objectContaining({ tab: "t1", url: "https://example.com/comments" }),
+      expect.objectContaining({ tab: "t2", url: "https://example.com/inbox", belongsTo: "another bot" }),
+    ]);
+    expect((await tabs(comments))[0]).not.toHaveProperty("belongsTo");
+  });
+
+  it("refuses a bot another bot's tab, to read, to act in, to bring to the front or to close", async () => {
+    const { comments, messages, tabs, text } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    for (const [name, args] of [
+      ["agent_browser_read", { tab: "t1" }],
+      ["agent_browser_fill", { tab: "t1", selector: "#name", text: "Ada" }],
+      ["agent_browser_open", { tab: "t1", url: "https://example.com/elsewhere" }],
+      ["agent_browser_tabs", { action: "switch", tab: "t1" }],
+      ["agent_browser_tabs", { action: "close", tab: "t1" }],
+      ["agent_browser_close", { tab: "t1" }],
+    ] as const) {
+      const refused = await messages(name, args);
+      expect(refused.isError, name).toBe(true);
+      expect(text(refused)).toContain("t1 belongs to another bot that shares this browser");
+    }
+    expect((await tabs(comments)).map((tab) => tab.url)).toEqual(["https://example.com/form", "https://example.com/inbox"]);
+  });
+
+  it("closes only the calling bot's tabs while another bot has tabs open, and the whole browser once none has", async () => {
+    const { comments, messages, tabs, text, service } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/comments" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    expect(text(await messages("agent_browser_close"))).toBe("Closed t2. The browser stays open: other bots share it and have tabs open.");
+    expect((await tabs(comments)).map((tab) => tab.url)).toEqual(["https://example.com/comments"]);
+    expect(text(await comments("agent_browser_close"))).toContain("Closed the browser.");
+    expect(service.profiles()[0]!.run).toBeNull();
+  });
+
+  it("counts a tab a bot's page opened as that bot's", async () => {
+    const { comments, messages, text, backend } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    const page = [...backend.chrome.pages.values()].find((candidate) => candidate.url.endsWith("/form"))!;
+    page.elements[3]!.onClick = (opener: FakePage) => { backend.chrome.popup(opener, "https://example.com/popup"); };
+    expect(text(await comments("agent_browser_click", { ref: "e3" }))).toContain("The page opened a new tab t2");
+    expect(text(await messages("agent_browser_read", { tab: "t2" }))).toContain("t2 belongs to another bot");
+    expect(text(await comments("agent_browser_read"))).toContain("page https://example.com/popup");
+  });
+
+  it("lets a bot with no tab take one no bot has used before it opens another", async () => {
+    const { comments, messages, tabs } = shared(["https://example.com/restored-1", "https://example.com/restored-2"]);
+    await comments("agent_browser_open", { url: "https://example.com/comments" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    expect((await tabs(comments)).map((tab) => tab.url).sort()).toEqual(["https://example.com/comments", "https://example.com/inbox"]);
+  });
+
+  it("types a saved login into the calling bot's own tab, brought to the front, never into another bot's", async () => {
+    const { comments, messages, service, target } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    const front = () => service.profiles()[0]!.active()?.page.url();
+    expect(front()).toBe("https://example.com/inbox");
+    let typedInto: string | undefined;
+    await service.withSecretInput(target, async () => { typedInto = front(); return { ok: true, text: "filled" }; }, "comments");
+    expect(typedInto).toBe("https://example.com/form");
+  });
+
+  it("refuses to type a saved login for a bot whose every open tab is another bot's", async () => {
+    const { comments, service, target } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/form" });
+    let ran = false;
+    await expect(service.withSecretInput(target, async () => { ran = true; return { ok: true, text: "filled" }; }, "messages"))
+      .rejects.toThrow("You have no tab open: the open ones belong to other bots that share this browser.");
+    expect(ran).toBe(false);
+  });
+
+  it("frees the tabs of a bot that no longer uses the browser, for the bots that still share it", async () => {
+    const using = new Set(["comments", "messages"]);
+    const { comments, messages, tabs, text } = shared(undefined, { usesBrowser: (_session, botId) => using.has(botId) });
+    await comments("agent_browser_open", { url: "https://example.com/comments" });
+    await messages("agent_browser_open", { url: "https://example.com/inbox" });
+    expect((await messages("agent_browser_read", { tab: "t1" })).isError).toBe(true);
+    using.delete("comments");
+    expect((await tabs(messages)).some((tab) => tab.belongsTo)).toBe(false);
+    expect(text(await messages("agent_browser_read", { tab: "t1" }))).toContain("page https://example.com/comments");
+  });
+
+  it("tells a bot whose every open tab is another bot's to open its own", async () => {
+    const { comments, messages, text } = shared();
+    await comments("agent_browser_open", { url: "https://example.com/comments" });
+    const refused = await messages("agent_browser_snapshot");
+    expect(refused.isError).toBe(true);
+    expect(text(refused)).toBe("You have no tab open: the open ones belong to other bots that share this browser. Call agent_browser_open.");
+  });
+});
+
 describe("a person and the bot sharing one browser", () => {
   it("refuses every bot call while a person holds the browser, reads included, and lets the bot back on release", async () => {
     const { service, call, target } = setup();

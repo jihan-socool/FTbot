@@ -3,7 +3,7 @@
 // Adapted from pingdotgg/t3code@00cdceb1 apps/server/src/preview/ServerBrowser.ts (runOperation, executeTabOperation,
 // navigate, status) and apps/server/src/mcp/PreviewAutomationBroker.ts, MIT License, Copyright (c) 2026 T3 Tools Inc.
 // (full text in third_party/t3-code/LICENSE); modified: one in-process host instead of a broker, tabs that belong to
-// the profile, the CDP driver instead of Playwright, and FTbot's page-change and page-health lines.
+// the profile or to one of the bots sharing it, the CDP driver instead of Playwright, and FTbot's page-change and page-health lines.
 import { describePageChange, sanitizeUrl, type PageState } from "../browser-tool-shape.ts";
 import type { CdpBrowser } from "./cdp/browser.ts";
 import type { Download } from "./cdp/downloads.ts";
@@ -36,7 +36,7 @@ export interface BrowserStatus {
   url: string | null;
   title: string;
   loading: boolean;
-  tabs: Array<{ tab: string; url: string; title: string; active: boolean; openedBy?: string }>;
+  tabs: Array<{ tab: string; url: string; title: string; active: boolean; openedBy?: string; belongsTo?: "another bot" }>;
   heldByPerson: boolean;
   dialog: { type: string; message: string; defaultPrompt?: string } | null;
   fileChooser: { multiple: boolean } | null;
@@ -49,6 +49,8 @@ export interface ToolContext {
   readonly tabs: TabRegistry;
   readonly browser: CdpBrowser;
   readonly deadline: number;
+  /** The bot making this call; null for a call made for no bot, which may use every tab. */
+  readonly botId: string | null;
   active(): Tab | null;
   openTab(url?: string): Promise<Tab>;
   closeTab(tab: Tab): Promise<void>;
@@ -91,15 +93,37 @@ function remaining(context: ToolContext, preferred = DEFAULT_ACTION_MS): number 
   return Math.max(1_000, Math.min(preferred, context.deadline - Date.now() - FOLLOW_UP_MS));
 }
 
+export type Caller = Pick<ToolContext, "botId" | "tabs" | "active">;
+
+/** Whether the calling bot may use this tab: its own, or one no bot has taken. */
+function usable(context: Pick<ToolContext, "botId">, tab: Tab): boolean {
+  return context.botId === null || tab.owner === null || tab.owner === context.botId;
+}
+
+/** The tab a call without `tab` means: the one in front when it is usable, else the bot's last, else a free one. */
+export function defaultTab(context: Caller): Tab | null {
+  const front = context.active();
+  if (front && usable(context, front)) return front;
+  const open = context.tabs.list().filter((tab) => usable(context, tab));
+  const own = open.filter((tab) => tab.owner !== null);
+  return (context.botId === null ? undefined : context.tabs.lastUsedBy(context.botId)) ?? own.at(-1) ?? open.at(-1) ?? null;
+}
+
+export function taken(context: Caller, tab: Tab): Tab {
+  if (context.botId !== null) context.tabs.use(context.botId, tab);
+  return tab;
+}
+
 function tabOf(context: ToolContext, id: string | undefined): Tab {
   if (id) {
     const tab = context.tabs.get(id);
     if (!tab) throw new DriverError("not-found", `There is no tab ${id}. agent_browser_tabs lists the open ones.`);
-    return tab;
+    if (!usable(context, tab)) throw new DriverError("refused", `${id} belongs to another bot that shares this browser, so it is not yours to use. Use your own tab, or open one with agent_browser_tabs and action new.`);
+    return taken(context, tab);
   }
-  const active = context.active();
-  if (!active) throw new DriverError("not-found", "No tab is open. Call agent_browser_open.");
-  return active;
+  const tab = defaultTab(context);
+  if (!tab) throw new DriverError("not-found", context.tabs.list().length ? "You have no tab open: the open ones belong to other bots that share this browser. Call agent_browser_open." : "No tab is open. Call agent_browser_open.");
+  return taken(context, tab);
 }
 
 async function observe(tab: Tab): Promise<PageState | null> {
@@ -116,9 +140,9 @@ function describe(tab: Tab): { url: string; title: string; tab: string } {
 }
 
 /** A tab's state for agent_browser_status, the title left out while a dialog is open, as T3 Code does. */
-export function statusOf(context: Pick<ToolContext, "tabs" | "control" | "active" | "downloads">, tab: Tab | null = null): BrowserStatus {
+export function statusOf(context: Pick<ToolContext, "tabs" | "control" | "active" | "downloads" | "botId">, tab: Tab | null = null): BrowserStatus {
   const front = context.active();
-  const active = tab ?? front;
+  const active = tab ?? defaultTab(context);
   const dialog = active?.page.dialogs.pending ?? null;
   const chooser = active?.page.fileChoosers.open ?? null;
   const auth = active?.page.auth.pending ?? null;
@@ -130,6 +154,7 @@ export function statusOf(context: Pick<ToolContext, "tabs" | "control" | "active
     tabs: context.tabs.list().map((listed) => ({
       tab: listed.id, url: sanitizeUrl(listed.page.url()) || listed.page.url(), title: listed.page.title(), active: listed === front,
       ...(listed.openerTabId ? { openedBy: listed.openerTabId } : {}),
+      ...(usable(context, listed) ? {} : { belongsTo: "another bot" as const }),
     })),
     heldByPerson: context.control.owner !== null,
     dialog: dialog ? { type: dialog.type, message: dialog.message, ...(dialog.type === "prompt" ? { defaultPrompt: dialog.defaultPrompt } : {}) } : null,
@@ -243,8 +268,8 @@ export async function executeTool(context: ToolContext, call: ToolCall): Promise
     case "agent_browser_open": {
       const { url, tab: which } = call.input;
       const address = url !== undefined && url.trim() !== "" ? agentUrl(url) : null;
-      const existing = which === "new" ? null : which ? tabOf(context, which) : context.active();
-      const tab = existing ?? await context.control.agent(null, () => context.openTab());
+      const existing = which === "new" ? null : which ? tabOf(context, which) : defaultTab(context);
+      const tab = taken(context, existing ?? await context.control.agent(null, () => context.openTab()));
       return context.control.agent(tab, async () => {
         await tab.page.bringToFront();
         const opened = address ? await tab.page.navigate(address, { readiness: "load", timeoutMs: remaining(context) }) : null;
@@ -418,7 +443,7 @@ export async function executeTool(context: ToolContext, call: ToolCall): Promise
       }
       if (action === "new") {
         const address = url !== undefined && url.trim() !== "" ? agentUrl(url) : null;
-        const tab = await context.control.agent(null, () => context.openTab());
+        const tab = taken(context, await context.control.agent(null, () => context.openTab()));
         return act(context, tab, async () => {
           await tab.page.bringToFront();
           if (address) await tab.page.navigate(address, { readiness: "load", timeoutMs: remaining(context) });
@@ -437,6 +462,13 @@ export async function executeTool(context: ToolContext, call: ToolCall): Promise
       if (call.input.tab) {
         const tab = tabOf(context, call.input.tab);
         return context.control.agent(null, async () => { await context.closeTab(tab); return textResult(`Closed ${tab.id}.`); });
+      }
+      if (context.tabs.list().some((tab) => !usable(context, tab))) {
+        const own = context.tabs.list().filter((tab) => tab.owner === context.botId);
+        return context.control.agent(null, async () => {
+          for (const tab of own) await context.closeTab(tab);
+          return textResult(`${own.length ? `Closed ${own.map((tab) => tab.id).join(", ")}.` : "You had no tab open."} The browser stays open: other bots share it and have tabs open.`);
+        });
       }
       return context.control.agent(null, async () => { await context.closeBrowser(); return textResult("Closed the browser. Saved sign-ins are kept; agent_browser_open starts it again."); });
     }
