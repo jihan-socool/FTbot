@@ -1,16 +1,16 @@
+import { Star } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 
 /** The colour behind a Simple row, which the status dot on its avatar is ring-cut against. */
 export function rowSurface(selected: boolean): string {
   return selected
-    ? "[--row:color-mix(in_srgb,var(--color-accent)_15%,var(--color-panel))]"
-    : "[--row:var(--color-panel)] max-md:[--row:var(--color-app)] hover:[--row:color-mix(in_srgb,var(--color-raised)_50%,var(--color-panel))]";
+    ? "[--row:var(--color-raised)]"
+    : "[--row:var(--color-panel)] max-md:[--row:var(--color-app)] hover:[--row:color-mix(in_srgb,var(--color-ink)_6%,var(--color-panel))]";
 }
 
-/** The conversation the chat window has open. A tint, a left accent bar and an inset outline,
- * because `raised` sits only a shade away from `panel` on both the dark and the light skins. */
-export const rowSelectedSurface = "bg-accent/15 shadow-[inset_3px_0_0_0_var(--color-accent)] ring-1 ring-inset ring-accent/30 hover:bg-accent/20";
+/** The conversation the chat window has open: the same plain fill as a selected row. */
+export const rowSelectedSurface = "bg-raised";
 
 export type RowActivity = "working" | "failed" | "teammate" | "queued";
 
@@ -55,4 +55,14 @@ export function RowDot({ waiting = false }: { waiting?: boolean }) {
 export function RowStatusText({ working = false, failed = false, unread }: { working?: boolean; failed?: boolean; unread: boolean }) {
   const text = [working ? t("chat.activity.working") : "", failed ? t("sidebar.preview.failed") : "", unread ? t("task.unread") : ""].filter(Boolean).join(", ");
   return text ? <span className="sr-only">{text}</span> : null;
+}
+
+/** The bot's main thread ("Set as main thread"): one mark for every list of its threads. It never shrinks, so a long
+ * title is cut short before it. */
+export function MainThreadMark({ className }: { className?: string }) {
+  const label = t("sidebar.bot.simple.mainThread");
+  return <span role="img" data-main-thread-mark="" aria-label={label} title={label}
+    className={cn("flex shrink-0 items-center gap-1 text-[12px] font-medium leading-4 text-ink-secondary", className)}>
+    <Star size={14} aria-hidden="true" className="fill-current" />{t("sidebar.threads.main")}
+  </span>;
 }

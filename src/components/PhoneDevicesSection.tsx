@@ -22,10 +22,12 @@ import { showTunnelRetiredNotice } from "../lib/phone-link";
 import { PhonesList } from "./PhonesList";
 import { PairedPhones } from "./PairedPhones";
 import { TailnetComputers } from "./TailnetComputers";
+import { AlwaysOnHomeSection } from "./AlwaysOnHomeSection";
 import { RemoteAccessCheckRow } from "./RemoteAccessCheck";
 import { LearnMore, SettingRow, SettingsFoldRow, SettingsGroup, SettingsLinkRow, SettingsRows, Switch } from "./SettingsPrimitives";
 import { Layer } from "./Layer";
 import { DialogTitle } from "./settings/SettingsDialog";
+import { AdvancedSettingTag } from "./settings/AdvancedSection";
 export { DialogTitle };
 import { productName } from "../lib/brand";
 import { useStore } from "@/state/store";
@@ -385,8 +387,10 @@ export function reachLine(state: Pick<CompanionState, "routes">): string {
   return t("devices.reach.line", { ways: new Intl.ListFormat(undefined, { type: "conjunction" }).format(ways) });
 }
 
-export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simple = false, placeName = t("rail.thisComputer"), top = null }: {
+export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simple = false, moreWaysAsked = false, placeName = t("rail.thisComputer"), top = null }: {
   profileEmail?: string; focusRequest?: number; simple?: boolean; placeName?: string;
+  /** search or a link asked for More ways in, which Simple leaves out until Tailscale or HTTPS is on */
+  moreWaysAsked?: boolean;
   /** what leads the page: the door to pairing with My Cloud, when there is one */
   top?: React.ReactNode;
 }) {
@@ -438,9 +442,10 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
   const httpsOn = state.routes?.https?.on === true;
   const hosted = state.endpoints?.find((endpoint) => endpoint.kind === "hosted");
   const anyRoute = companionRoutesOn(state);
-  const reachOpen = showRoutes || pairedCount > 0 || anyRoute;
-  const moreWays = !simple || tailscaleOn || httpsOn;
-  const moreOpen = moreOpenAsked ?? (tailscaleOn || httpsOn);
+  const reachOpen = showRoutes || pairedCount > 0 || anyRoute || moreWaysAsked;
+  const moreWaysPeek = simple && moreWaysAsked && !tailscaleOn && !httpsOn;
+  const moreWays = !simple || tailscaleOn || httpsOn || moreWaysPeek;
+  const moreOpen = moreOpenAsked ?? (tailscaleOn || httpsOn || moreWaysPeek);
   const pairAgain = c.busy || remoteBlocked ? undefined : () => setPairing("device");
   const pairButton = (
     <button type="button" aria-disabled={c.busy || Boolean(remoteBlocked) || undefined} disabled={c.busy} title={managedBy ?? undefined}
@@ -473,6 +478,8 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
         </SettingsGroup>
       )}
 
+      <AlwaysOnHomeSection c={c} state={state} blocked={managedBy} onAddPhone={() => { if (!remoteBlocked) setPairing("device"); }} />
+
       {!reachOpen ? (
         <SettingsGroup block="reach" footnote={t("phone.reach.foot")}>
           <SettingsRows>
@@ -489,8 +496,8 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
                 onClick={() => void c.act((companion) => companion.keepAwake(!state.keepAwake))} />
             </SettingRow>
             <RemoteAccessCheckRow account={c.account} state={state} />
-            {moreWays && (
-              <SettingsFoldRow id="more-ways" title={t("devices.moreWays")} open={moreOpen} onToggle={() => setMoreOpen(!moreOpen)}>
+            {moreWays && <div data-settings-block="more-ways" className="contents">
+              <SettingsFoldRow id="more-ways" title={t("devices.moreWays")} value={moreWaysPeek ? <AdvancedSettingTag /> : undefined} open={moreOpen} onToggle={() => setMoreOpen(!moreOpen)}>
                 <SettingRow title="Tailscale" subtitle={<>{t("remote.tailscaleSwitch.short", { app: productName() })}{" "}<LearnMore href={TAILSCALE_HELP} /></>}
                   message={tailscaleStatus.kind !== "off" ? <span data-tailscale-status={tailscaleStatus.kind} aria-live="polite">{tailscaleStatus.title}{tailscaleStatus.detail ? ` ${tailscaleStatus.detail}` : ""}</span> : undefined}>
                   <span data-route-row="tailscale" className="contents">
@@ -517,7 +524,7 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
                   </span>
                 </SettingRow>}
               </SettingsFoldRow>
-            )}
+            </div>}
           </SettingsRows>
         </SettingsGroup>
       )}

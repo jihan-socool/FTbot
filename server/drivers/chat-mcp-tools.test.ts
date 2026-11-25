@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { crc32 } from "node:zlib";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { augmentedPath } from "../env-path.ts";
 import { MESSAGE_FILE_MAX_BYTES } from "../message-file.ts";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { ChatMcpClient, ChatToolSessionError, SAVED_RESULTS_FOLDER, SAVED_RESULTS_KEPT, chatToolNotices, directServers, joinLateChatTools, mcpStartupMs, mountChatTools, trimmedToolsNotice, type ChatToolDefinition, type ChatToolSession } from "./chat-mcp-tools.ts";
+import { ChatMcpClient, ChatToolSessionError, SAVED_RESULTS_FOLDER, SAVED_RESULTS_KEPT, agentsStartupMs, chatMcpEnvironment, chatToolNotices, directServers, joinLateChatTools, mcpStartupMs, mountChatTools, trimmedToolsNotice, type ChatToolDefinition, type ChatToolSession } from "./chat-mcp-tools.ts";
 import { EXECUTOR_LIKE_TOOLS } from "../testing/executor-like-tools.ts";
 import type { ToolScope } from "../../shared/tool-scope.ts";
 import type { SendTurnInput } from "../contracts.ts";
@@ -40,6 +41,19 @@ const dirs: string[] = [];
 const sessions: ChatToolSession[] = [];
 const controllers: AbortController[] = [];
 const schema = { type: "object", properties: { value: { type: "string" } }, required: ["value"], additionalProperties: false };
+
+describe("configured MCP environment", () => {
+  it("keeps an npm cache that works and preserves an explicit override", () => {
+    const cache = mkdtempSync(join(tmpdir(), "omb-npm-cache-"));
+    try {
+      const inherited = { npm_config_cache: cache, PATH: "/bin" };
+      expect(chatMcpEnvironment({}, inherited).npm_config_cache).toBe(cache);
+      expect(chatMcpEnvironment({ npm_config_cache: "/tmp/custom-npm-cache" }, inherited).npm_config_cache).toBe("/tmp/custom-npm-cache");
+    } finally {
+      rmSync(cache, { recursive: true, force: true });
+    }
+  });
+});
 
 function fixture(body = "", toolSchema: Record<string, unknown> = schema) {
   const dir = mkdtempSync(join(tmpdir(), "omb-chat-mcp-"));
@@ -99,8 +113,17 @@ async function expectSkipped(f: ReturnType<typeof fixture>, reason: RegExp) {
   } finally { warn.mockRestore(); }
 }
 
+/** POSIX: signal 0 still reaches a zombie until whatever adopted it collects it, though it no longer runs. */
 function alive(pid: number): boolean {
-  try { process.kill(pid, 0); return true; } catch { return false; }
+  try { process.kill(pid, 0); } catch { return false; }
+  if (process.platform === "linux") {
+    try { const stat = readFileSync(`/proc/${pid}/stat`, "utf8"); return !["Z", "X"].includes(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[0]!); } catch { return false; }
+  }
+  if (process.platform === "darwin") {
+    const state = spawnSync("ps", ["-o", "stat=", "-p", String(pid)], { encoding: "utf8" }).stdout.trim();
+    return state !== "" && !state.startsWith("Z");
+  }
+  return true;
 }
 
 afterEach(async () => {
@@ -178,7 +201,8 @@ describe("Chat MCP session", () => {
     const session = await f.mount();
     expect(session.definitions).toEqual([{ type: "function", function: { name: "audit_write", description: "Fixture write", parameters: schema } }]);
     expect(f.read().calls.map((call) => call.method)).not.toContain("tools/call");
-    expect(() => session.validate("audit_write", { value: 42 })).toThrow("input schema");
+    expect(() => session.validate("audit_write", { value: 42 })).toThrow(`Tool arguments do not match the advertised input schema: audit_write: value: must be string.`);
+    expect(() => session.validate("audit_write", 7)).toThrow(`Tool arguments do not match the advertised input schema: audit_write: arguments must be an object.`);
     await expect(session.execute("not_registered", {}, f.controller.signal)).rejects.toThrow("not advertised");
     expect(f.read().calls.map((call) => call.method)).not.toContain("tools/call");
     await expect(session.execute("audit_write", { value: "receipt" }, f.controller.signal)).resolves.toEqual({ text: "recorded:receipt", ok: true });
@@ -455,6 +479,13 @@ describe("Chat MCP session", () => {
       expect(mcpStartupMs({}, "win32", false)).toBe(8_000);
       expect(mcpStartupMs({}, "darwin")).toBe(8_000);
       expect(mcpStartupMs({}, "linux")).toBe(8_000);
+    });
+
+    it("gives the agents server twenty seconds on every desktop and never less than a Cloud home's half minute", () => {
+      expect(agentsStartupMs({}, "darwin")).toBe(20_000);
+      expect(agentsStartupMs({}, "linux")).toBe(20_000);
+      expect(agentsStartupMs({}, "win32")).toBe(20_000);
+      expect(agentsStartupMs({ OMB_CLOUD_ROLE: "home" }, "linux")).toBe(30_000);
     });
 
     // tools/list needs a budget that outlasts the child's own start, or the overrun would land in initialize.
@@ -833,8 +864,8 @@ describe("Chat MCP approvals by server", () => {
     sessions.push(session);
     expect(session.definitions.map((tool) => tool.function.name).sort()).toEqual(["agents_write", "audit_write", "computer_write"]);
     expect(session.view("agents_write", { value: "x" })).toEqual({ title: "agents_write", input: { value: "x" }, ask: false });
-    expect(session.view("audit_write", { value: "x" })).toEqual({ title: "audit_write", input: { value: "x" }, ask: true, grant: grantFor("audit", "write") });
-    expect(session.view("computer_write", { value: "x" })).toEqual({ title: "computer_write", input: { value: "x" }, ask: true });
+    expect(session.view("audit_write", { value: "x" })).toEqual({ title: "audit_write", permissionTool: "mcp__audit__write", input: { value: "x" }, ask: true, grant: grantFor("audit", "write") });
+    expect(session.view("computer_write", { value: "x" })).toEqual({ title: "computer_write", permissionTool: "mcp__computer__write", input: { value: "x" }, ask: true });
   });
 
   it("ties an allow to the server as launched: the same server keeps it, a changed one under the same name does not", async () => {
@@ -881,7 +912,7 @@ describe("Chat MCP tool directory", () => {
       expect(JSON.parse(search.text).matches[0].name).toBe("payments_list");
       expect(session.view("whop_search_tools", { query: "list payments" })).toEqual({ title: "whop_search_tools", input: { query: "list payments" }, ask: false });
       const args = { name: "payments_list", arguments: { company_id: "biz_1" } };
-      expect(session.view("whop_call_tool", args)).toEqual({ title: "whop_payments_list", input: { company_id: "biz_1" }, ask: true, grant: grantFor("whop", "payments_list") });
+      expect(session.view("whop_call_tool", args)).toEqual({ title: "whop_payments_list", permissionTool: "mcp__whop__payments_list", input: { company_id: "biz_1" }, ask: true, grant: grantFor("whop", "payments_list") });
       await expect(session.execute("whop_call_tool", args, controller.signal)).resolves.toMatchObject({ ok: true, text: "remote execution recorded" });
       expect(remote.calls).toEqual([{ name: "payments_list", arguments: { company_id: "biz_1" } }]);
       const nameless = await session.execute("whop_call_tool", { arguments: {} }, controller.signal);
@@ -918,7 +949,7 @@ describe("Chat MCP tool directory", () => {
       const session = await mountChatTools({ custom: { whop: { type: "http", url: remote.url, headers: {} } } }, controller.signal);
       sessions.push(session);
       expect(session.definitions.map((tool) => tool.function.name)).toEqual(whopLikeCatalog(5).map((tool) => `whop_${tool.name.replace("-", "_")}`));
-      expect(session.view("whop_payments_list", { company_id: "biz_1" })).toEqual({ title: "whop_payments_list", input: { company_id: "biz_1" }, ask: true, grant: grantFor("whop", "payments_list") });
+      expect(session.view("whop_payments_list", { company_id: "biz_1" })).toEqual({ title: "whop_payments_list", permissionTool: "mcp__whop__payments_list", input: { company_id: "biz_1" }, ask: true, grant: grantFor("whop", "payments_list") });
     } finally { await remote.close(); }
   });
 });
@@ -1056,7 +1087,7 @@ describe("Chat MCP servers past the tool limit", () => {
     await expect(session.execute("mcp_describe_tool", { name: "audit_write" }, signal)).resolves.toMatchObject({ ok: true, text: expect.stringContaining('"required":["value"]') });
 
     const call = { name: "audit_write", arguments: { value: "through search" } };
-    expect(session.view("mcp_call_tool", call)).toEqual({ title: "audit_write", input: { value: "through search" }, ask: true, grant: grantFor("audit", "write") });
+    expect(session.view("mcp_call_tool", call)).toEqual({ title: "audit_write", permissionTool: "mcp__audit__write", input: { value: "through search" }, ask: true, grant: grantFor("audit", "write") });
     const misfit = { name: "audit_write", arguments: { value: 7 } };
     expect(session.view("mcp_call_tool", misfit).ask).toBe(false);
     const refused = await session.execute("mcp_call_tool", misfit, signal);
@@ -1140,6 +1171,24 @@ describe("Chat MCP startup budgets", () => {
       vi.useRealTimers();
       await remote.close();
     }
+  });
+
+  it("keeps waiting for a slow agents server past the eight seconds other servers get", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      // Lists its tools only once the test says so, like an agents server still loading on a busy older Mac.
+      const f = fixture(`if (message.method === "tools/list") { const wait = setInterval(() => { if (!existsSync(receipt + ".go")) return; clearInterval(wait);
+        reply(message, {tools:[{name:"write",description:"Fixture write",inputSchema:schema}]}); }, 20); continue; }`);
+      const mounting = watch(mountChatTools({ agents: f.server } as SendTurnInput["integrations"], f.controller.signal));
+      const listed = () => { try { return f.read().calls.some((call) => call.method === "tools/list"); } catch { return false; } };
+      await untilReal(listed);
+      await vi.advanceTimersByTimeAsync(17_000);
+      writeFileSync(`${f.receipt}.go`, "");
+      await untilReal(() => mounting.done);
+      expect(mounting.error).toBeUndefined();
+      sessions.push(mounting.value!);
+      expect(mounting.value!.definitions.map((definition) => definition.function.name)).toEqual(["agents_write"]);
+    } finally { vi.useRealTimers(); }
   });
 
   it("still gives a configured command server 8 seconds, on Windows too", async () => {

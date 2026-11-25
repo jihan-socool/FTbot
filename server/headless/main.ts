@@ -1,5 +1,6 @@
 import { HEADLESS_USAGE } from "../cli-usage.ts";
 import { EXIT, HeadlessError, MUTATING_VERBS, parseCommand } from "./args.ts";
+import { inBotShell } from "./bot-shell.ts";
 import { explain, loadMcp, openClient, type ClientDeps, type HeadlessClient } from "./client.ts";
 import { doctor, edit, interrupt, list, messages, newBot, newChannel, send, setModel } from "./commands.ts";
 import { connectVerb } from "./connect.ts";
@@ -9,6 +10,10 @@ import { eventsVerb } from "./events.ts";
 import { exportVerb } from "./export.ts";
 import { Output, processIo, type HeadlessIo } from "./output.ts";
 import { runVerb, waitVerb } from "./run.ts";
+import { botsVerb, computersVerb, statusVerb, stopVerb, threadsVerb } from "./fleet.ts";
+import { loginVerb, logoutVerb, serversVerb, useVerb, whoamiVerb } from "./login.ts";
+import { askOnTerminal, openInBrowser, terminalPresent } from "./prompt.ts";
+import { SavedServers, type SecurityRunner } from "./saved-servers.ts";
 import { teamApplyVerb, teamExportVerb } from "./team-apply.ts";
 import { tokenVerb } from "./token.ts";
 
@@ -22,8 +27,55 @@ export const VERB_HELP: Record<string, string> = {
 ftbot doctor --host [--data-dir DIR] [--port 8799] [--domain HOST]
   Check this Linux machine can run the server and the bots' sandbox: the system, Docker or Podman, user
   namespaces, seccomp, cgroup v2, free disk, size, ports and the clock. Each problem says its fix.
-  Exit 0 ready (warnings allowed), 7 something is missing. On macOS and Windows it says it is for Linux.`,
-  bots: "ftbot bots\n  Your bots and what each is doing.",
+  Exit 0 ready (warnings allowed), 7 something is missing. On macOS and Windows it says it is for Linux.
+ftbot doctor --data [--fix] [--data-dir DIR]
+  Check this computer's data folder without the server: the data format, the folder's lease, folders, bots.json and
+  groups.json, saves that did not finish, engine-run records, messages.db, private files' modes and config.json.
+  --fix applies the repairs that cannot lose data, only while no server uses the folder; whatever a repair changes is
+  copied to DIR/doctor-backups/<time>/ first. Anything else is reported with what to do.
+  Exit 0 fine (after --fix: fine now), 8 a problem is left.`,
+  login: `ftbot login [SERVER] [--scope chat] [--name NAME]
+  Sign this terminal in, once. On this computer MausBot shows a card with a short code: check it matches the one printed
+  here and press Allow. For a Cloud or a server elsewhere (ftbot login https://maus.example.com) your browser opens
+  the same card. The sign-in lasts 30 days and renews while you use it; it is kept in the macOS Keychain (elsewhere in a
+  file only you can read) and never printed. --scope chat signs in for chat only. Every command then uses this server.
+  Inside a bot's own shell it refuses: there the command acts as that bot.`,
+  logout: "ftbot logout [NAME]\n  Sign out of the current server (or NAME): its session ends there and is removed here.",
+  whoami: "ftbot whoami\n  Which server the commands go to, and who you are to it.",
+  use: "ftbot use NAME\n  Send every command to another saved server (ftbot servers lists them).",
+  servers: "ftbot servers\n  The servers you signed in to; * marks the one commands go to.",
+  status: `ftbot status
+  Every bot at a glance: working, waiting on you, waiting on teammates, paused, failed or idle, with its computer and team.`,
+  bots: `ftbot bots [list]                    your bots and what each is doing
+ftbot bots get BOT
+ftbot bots delete (BOT… | --team NAME | --all) [--dry-run] [--yes]
+ftbot bots pause | resume (BOT… | --team NAME | --all) [--dry-run]
+ftbot bots stop (BOT… | --team NAME | --all) [--dry-run] [--yes]
+  delete prints the bots it would delete and asks first; --yes skips the question (a script must pass it),
+  --dry-run only prints the list. Pausing stops their work and lasts across restarts until resume; --team pauses
+  the team itself, so bots added to it later are paused too. stop stops their work now and pauses nothing.`,
+  "bots list": "ftbot bots list\n  Your bots and what each is doing (the same as ftbot bots).",
+  "bots get": "ftbot bots get BOT\n  One bot: its team, state, computer, model, approvals and conversations.",
+  "bots delete": "ftbot bots delete (BOT… | --team NAME | --all) [--dry-run] [--yes]\n  Delete bots with their conversations. It prints the list and asks first; MausBot itself and a busy bot are refused.",
+  "bots pause": "ftbot bots pause (BOT… | --team NAME | --all) [--dry-run]\n  Pause bots: their work stops and nothing new starts, across restarts, until bots resume.",
+  "bots resume": "ftbot bots resume (BOT… | --team NAME | --all) [--dry-run]\n  Resume paused bots.",
+  "bots stop": "ftbot bots stop (BOT… | --team NAME | --all) [--dry-run] [--yes]\n  The same as ftbot stop.",
+  stop: `ftbot stop (BOT… | --team NAME | --all) [--dry-run] [--yes]
+  Stop the work these bots are doing now: every conversation, routine run and hand-off. Nothing is paused, so a new
+  message or routine starts them again. --all prints the bots working now and asks first.`,
+  threads: `ftbot threads list BOT
+ftbot threads clear BOT [--dry-run] [--yes]          delete every conversation (the bot keeps one new, empty one)
+ftbot threads delete BOT THREAD… [--dry-run] [--yes]
+  A conversation that is working is kept: stop it first.`,
+  "threads list": "ftbot threads list BOT\n  A bot's conversations; * marks the one it has open.",
+  "threads clear": "ftbot threads clear BOT [--dry-run] [--yes]\n  Delete all of a bot's conversations; it keeps one new, empty one. Prints the list and asks first.",
+  "threads delete": "ftbot threads delete BOT THREAD… [--dry-run] [--yes]\n  Delete some of a bot's conversations, by id (threads list shows them). Prints the list and asks first.",
+  computers: `ftbot computers list                 where each bot works, and its cloud computer's state
+ftbot computers start BOT            create or wake a bot's cloud computer (the bot must be set to Cloud computer)
+ftbot computers sleep BOT            put it to sleep; it wakes when the bot needs it`,
+  "computers list": "ftbot computers list\n  Where each bot works, and its cloud computer's state.",
+  "computers start": "ftbot computers start BOT [--dry-run]\n  Create or wake a bot's cloud computer, and wait until it is ready.",
+  "computers sleep": "ftbot computers sleep BOT [--dry-run]\n  Put a bot's cloud computer to sleep.",
   channels: "ftbot channels\n  Your rooms (group chats) and who is in them.",
   models: "ftbot models\n  The engines and the models each offers (use them as INSTANCE/MODEL).",
   messages: `ftbot messages TARGET [--limit 30]\n  The latest messages of a conversation (at most 200).
@@ -80,8 +132,9 @@ ftbot doctor --host [--data-dir DIR] [--port 8799] [--domain HOST]
   claude: the key runs every Claude bot; --only-claude-api keeps it to "Claude (API key)" bots.`,
   "engine list": "ftbot engine list\n  The engines, whether each is ready, and which keys are set (never their values).",
   connect: `ftbot connect [URL] [--code CODE] --out FILE [--label NAME] [--client] [--force]
-  Get a token for a workspace you reach over the network, saved to FILE (only you can read it).
-  On this computer's own server the code is made for you; elsewhere, get one from Settings → Phone & devices.
+  Get a token for a workspace you reach over the network, saved to FILE (only you can read it). For yourself at a
+  terminal, ftbot login is simpler. On a server you started with ftbot serve the code is made for you;
+  for the desktop app or a server elsewhere, get one from Settings → Phone & devices.
   Then use it: --url URL --token-file FILE (or FTBOT_URL and FTBOT_TOKEN).`,
   mcp: "ftbot mcp\n  Serve the FTbot MCP tools on stdin and stdout, for an agent (docs/mcp-server.md).",
   token: "ftbot token create NAME --out FILE … | token list | token revoke ID   (see help token create)",
@@ -103,6 +156,12 @@ export interface HeadlessOptions {
   requireExplicitForMutations?: boolean;
   defaultWaitMs?: number;
   signal?: AbortSignal;
+  /** Tests: stand-ins for macOS `security`, the platform, the terminal and the browser. */
+  security?: SecurityRunner;
+  platform?: NodeJS.Platform;
+  interactive?: boolean;
+  confirm?: (question: string) => Promise<boolean>;
+  openBrowser?: (url: string) => Promise<boolean>;
 }
 
 const VERBS: Record<string, (ctx: VerbContext) => Promise<VerbOutcome>> = {
@@ -110,6 +169,10 @@ const VERBS: Record<string, (ctx: VerbContext) => Promise<VerbOutcome>> = {
   interrupt, "new-bot": newBot, "new-channel": newChannel, "set-model": setModel, edit, export: exportVerb, events: eventsVerb,
   "team apply": teamApplyVerb, "team export": teamExportVerb, "engine set": engineVerb, "engine list": engineVerb, connect: connectVerb,
   "token create": tokenVerb, "token list": tokenVerb, "token revoke": tokenVerb,
+  login: loginVerb, logout: logoutVerb, whoami: whoamiVerb, use: useVerb, servers: serversVerb, status: statusVerb,
+  "bots list": list, "bots get": botsVerb, "bots delete": botsVerb, "bots pause": botsVerb, "bots resume": botsVerb, "bots stop": botsVerb,
+  stop: stopVerb, "threads list": threadsVerb, "threads clear": threadsVerb, "threads delete": threadsVerb,
+  "computers list": computersVerb, "computers start": computersVerb, "computers sleep": computersVerb,
 };
 
 async function execute(argv: readonly string[], options: HeadlessOptions, io: HeadlessIo): Promise<{ outcome: VerbOutcome; output: Output; client?: HeadlessClient }> {
@@ -125,20 +188,28 @@ async function execute(argv: readonly string[], options: HeadlessOptions, io: He
     return { outcome: { result: null, exitCode: EXIT.done, human: [], printed: true }, output };
   }
   const env = options.env ?? process.env;
+  const botShell = inBotShell(env);
+  // control-omb drives fixtures only: a saved sign-in would point it at the person's own workspace.
+  const saved = botShell || options.requireExplicitForMutations ? null : new SavedServers({ env, ...(options.platform ? { platform: options.platform } : {}), ...(options.security ? { security: options.security } : {}) });
   let client: HeadlessClient | undefined;
   let opening: Promise<HeadlessClient> | undefined;
   const ctx: VerbContext = {
     verb: parsed.verb, flags: parsed.flags, positionals: parsed.positionals, env, io, output,
     client: () => (opening ??= openClient(parsed.flags, { env, ...(options.callTool ? { callTool: options.callTool } : {}),
-      ...(options.request ? { request: options.request } : {}), requireExplicitForMutations: options.requireExplicitForMutations === true },
+      ...(options.request ? { request: options.request } : {}), requireExplicitForMutations: options.requireExplicitForMutations === true,
+      ...(saved ? { saved } : {}) },
     MUTATING_VERBS.has(parsed.verb)).then((opened) => (client = opened))),
     signal: options.signal ?? new AbortController().signal,
     defaultWaitMs: options.defaultWaitMs ?? 30 * 60_000,
+    botShell, saved,
+    interactive: options.interactive ?? terminalPresent(),
+    confirm: options.confirm ?? ((question) => askOnTerminal(question, io)),
+    openBrowser: options.openBrowser ?? openInBrowser,
   };
   try {
     return { outcome: await VERBS[parsed.verb]!(ctx), output, ...(client ? { client } : {}) };
   } catch (error) {
-    throw await explain(error, client?.baseUrl);
+    throw await explain(error, client?.baseUrl, { botShell, ...(client ? { identity: client.identity } : {}) });
   }
 }
 

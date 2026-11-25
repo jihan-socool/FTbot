@@ -5,6 +5,8 @@ import { threadTitleFrom, type BotRecord, type Store, type TaskRecord } from "..
 import { PASS, type RouteHandler } from "./table.ts";
 import { conversationLanguage, serverLine } from "../server-lines.ts";
 
+const THREADS_PAGE = 100;
+
 type ThreadState = "running" | "waiting-on-you" | "queued" | "idle" | "closed";
 
 interface ThreadRow {
@@ -14,6 +16,8 @@ interface ThreadRow {
   /** Why a queued handoff hasn't started (host/queued-reason.ts). */
   waiting?: string;
   openedBy?: string;
+  /** The person's sidebar no longer shows it. */
+  archived?: true;
 }
 
 /** Only dispatch inside the internal capability gate: `from` and `fromThreadId` come from the caller's capability. */
@@ -33,7 +37,7 @@ export function createInternalThreadRoutes(deps: {
   readBody(): Promise<unknown>;
 }): RouteHandler {
   const { store, coordinator, from, fromThreadId } = deps;
-  return async ({ res, path, method, json }) => {
+  return async ({ res, url, path, method, json }) => {
     // list_threads: the caller's own threads plus, on reachable peers, only threads it opened; a peer's other threads are its own business.
     if (method === "GET" && path === "/api/internal/threads") {
       if (!deps.ownsThread(from.id, fromThreadId)) {
@@ -41,7 +45,7 @@ export function createInternalThreadRoutes(deps: {
       }
       const rows: ThreadRow[] = [];
       const stateOf = (bot: BotRecord, task: TaskRecord) => {
-        if (task.activity === "waiting-on-you" || coordinator.awaitingAnswer(task.threadId)) return "waiting-on-you" as const;
+        if ((!task.closedBy && task.activity === "waiting-on-you") || coordinator.awaitingAnswer(task.threadId)) return "waiting-on-you" as const;
         if (deps.threadBusy(bot.id, task.threadId)) return "running" as const;
         if (coordinator.parkedDirect(task.threadId)) return "waiting-on-you" as const;
         if (deps.queuedThreadPosition(bot.id, task.threadId) !== null) return "queued" as const;
@@ -61,6 +65,7 @@ export function createInternalThreadRoutes(deps: {
           threadId: task.threadId, botId: from.id, botName: from.name, title: task.title,
           state, unread: task.unread === true, openedAt: task.openedBy?.at ?? task.createdAt,
           delegationId: task.openedBy?.delegationId, own: true, ...queued(from, task, state),
+          ...(task.archivedAt !== undefined ? { archived: true as const } : {}),
         });
       }
       for (const peer of reachablePeers(store.bots, from)) {
@@ -74,12 +79,15 @@ export function createInternalThreadRoutes(deps: {
             threadId: task.threadId, botId: peer.id, botName: peer.name, title: task.title,
             state, unread: task.unread === true, openedAt: opener.at,
             delegationId: opener.delegationId, own: false, ...queued(peer, task, state),
-            ...(mine ? {} : { openedBy: opener.name }),
+            ...(mine ? {} : { openedBy: opener.name }), ...(task.archivedAt !== undefined ? { archived: true as const } : {}),
           });
         }
       }
       rows.sort((a, b) => b.openedAt - a.openedAt);
-      return json(res, 200, { threads: rows.slice(0, 100) });
+      const asked = Number(url.searchParams.get("page"));
+      const page = Number.isSafeInteger(asked) && asked > 0 ? asked : 1;
+      const start = (page - 1) * THREADS_PAGE;
+      return json(res, 200, { threads: rows.slice(start, start + THREADS_PAGE), total: rows.length, page, pageSize: THREADS_PAGE });
     }
     // rename_thread names only the conversation the turn speaks in. A room's thread is the room's, and an automation's
     // chat keeps the name its runs find it by.
@@ -121,7 +129,7 @@ export function createInternalThreadRoutes(deps: {
       return json(res, 409, { error: `#${task.title} is still running — wait for it to finish (list_threads), or the person can stop it from the app` });
     }
     if (task.closedBy) {
-      return json(res, 200, { closed: true, alreadyClosed: true, threadId, title: task.title, botName: owner.name, closedBy: task.closedBy.name });
+      return json(res, 200, { closed: true, alreadyClosed: true, threadId, title: task.title, botName: owner.name, closedBy: task.closedBy.name, archived: task.archivedAt !== undefined });
     }
     store.appendMessage(threadId, {
       role: "bot",
@@ -131,6 +139,6 @@ export function createInternalThreadRoutes(deps: {
     });
     if (task.unread) store.patchTask(owner.id, threadId, { unread: false });
     store.setTaskClosedBy(owner.id, threadId, { botId: from.id, name: from.name, at: Date.now() });
-    return json(res, 200, { closed: true, threadId, title: task.title, botName: owner.name });
+    return json(res, 200, { closed: true, threadId, title: task.title, botName: owner.name, archived: task.archivedAt !== undefined });
   };
 }

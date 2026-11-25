@@ -442,7 +442,7 @@ jobs:
       - name: Install package validation and native smoke tools
         run: >-
           sudo apt-get update && sudo apt-get install -y
-          at-spi2-core dbus-x11 desktop-file-utils libxi6 libxkbcommon0 openbox squashfs-tools x11-utils xdotool xvfb
+          at-spi2-core cpio dbus-x11 desktop-file-utils libxi6 libxkbcommon0 openbox rpm squashfs-tools x11-utils xdotool xvfb
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
@@ -500,13 +500,15 @@ jobs:
           v=$(node -p "require('./package.json').version")
           cp "release/FTbot-$v-amd64.deb" release/FTbot-amd64.deb
           cp "release/FTbot-$v-x86_64.AppImage" release/FTbot.AppImage
-          (cd release && sha256sum FTbot-$v-amd64.deb FTbot-$v-x86_64.AppImage > SHA256SUMS-ubuntu-x64.txt)
+          cp "release/FTbot-$v-x86_64.rpm" release/FTbot-x86_64.rpm
+          (cd release && sha256sum FTbot-$v-amd64.deb FTbot-$v-x86_64.AppImage FTbot-$v-x86_64.rpm FTbot-amd64.deb FTbot.AppImage FTbot-x86_64.rpm > SHA256SUMS-ubuntu-x64.txt)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-release
           path: |
             release/*.deb
             release/*.AppImage
+            release/*.rpm
             release/SHA256SUMS-ubuntu-x64.txt
             release/latest-linux.yml
           if-no-files-found: error
@@ -548,7 +550,8 @@ jobs:
             "FTbot-$VERSION-x64.zip"
             "FTbot-$VERSION-x64.zip.blockmap"
             "FTbot-$VERSION-x86_64.AppImage"
-            FTbot-amd64.deb FTbot-intel.dmg FTbot-setup.exe
+            "FTbot-$VERSION-x86_64.rpm"
+            FTbot-amd64.deb FTbot-intel.dmg FTbot-setup.exe FTbot-x86_64.rpm
             FTbot.AppImage FTbot.dmg SHA256SUMS-ubuntu-x64.txt
           )
           for file in "${required[@]}"; do
@@ -574,6 +577,7 @@ jobs:
             ["latest-linux.yml", [
               "FTbot-${{ needs.prepare.outputs.version }}-x86_64.AppImage",
               "FTbot-${{ needs.prepare.outputs.version }}-amd64.deb",
+              "FTbot-${{ needs.prepare.outputs.version }}-x86_64.rpm",
             ]],
           ]);
           let bad = 0;

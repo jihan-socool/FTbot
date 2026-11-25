@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -12,7 +12,9 @@ import { CLOUD_HEALTH_MAX_BYTES, HEALTH_BUCKET_CAP, createCloudHealth, createClo
 import { DATA_DIR, EVENTS_DIR } from "./config.ts";
 import { memoryStallText, memoryStopText } from "./engine-memory.ts";
 import type { RuntimeEvent } from "./contracts.ts";
+import { doctorAtStart } from "./doctor/start.ts";
 import { toolFailureMessage } from "./drivers/tool-failure.ts";
+import { STORAGE_HEALTH_MAX_BYTES, type StorageReport } from "./perf/disk-usage.ts";
 import { createCloudSignedRoutes } from "./routes/cloud-signed.ts";
 import { SessionRegistry } from "./sessions.ts";
 import { Store } from "./store.ts";
@@ -49,11 +51,44 @@ function world(overrides: Partial<CloudHealthDeps> = {}) {
 const incidents = (w: ReturnType<typeof world>, after?: string) => w.health.report(after).incidents.map(({ kind, code, engine, count }) => ({ kind, code, engine, count }));
 const place = (state: PlaceRow["state"]): PlaceRow => ({ state, params: { bot: "Tallyspoon Ops", cause: "Boat said: quota exceeded for ada@example.test." }, source: "works-on" });
 
+describe("a Cloud home's storage in its health report", () => {
+  const report = (bots: number): StorageReport => ({
+    v: 1, at: START, ageS: 0, tookS: 60, running: false, progress: null, volume: { totalBytes: 84e9, freeBytes: 3e9, usedBytes: 81e9 }, walkedBytes: 80e9, unwalkedBytes: 1e9,
+    categories: [{ name: "engine_state", class: "precious", bytes: 50e9, files: 10 }], bots: Array.from({ length: bots }, (_, index) => ({ id: `${"b".repeat(60)}${index}`, bytes: 1e9, files: 1 })),
+    botsRest: { bytes: 0, files: 0, count: 0 }, other: null, skipped: null, linksCapped: false, linksUncheckedBytes: 0, resumes: 0, failed: false,
+  });
+
+  it("carries the last breakdown within its own budget, and leaves the field out where it is not measured or its read throws", () => {
+    expect(world({ storage: () => report(2) }).health.report(undefined)).toMatchObject({ storage: { v: 1, volume: { usedBytes: 81e9 }, categories: [{ name: "engine_state" }] } });
+    const big = world({ storage: () => report(200) }).health.report(undefined).storage!;
+    expect(JSON.stringify(big).length).toBeLessThanOrEqual(STORAGE_HEALTH_MAX_BYTES);
+    expect(big.botsRest.count).toBeGreaterThan(0);
+    expect(world().health.report(undefined)).not.toHaveProperty("storage");
+    expect(world({ storage: () => null }).health.report(undefined)).not.toHaveProperty("storage");
+    const warned: string[] = [];
+    const broken = world({ storage: () => { throw new RangeError("at /Users/ada/secret"); }, log: (line) => warned.push(line) });
+    expect(broken.health.report(undefined)).not.toHaveProperty("storage");
+    broken.health.report(undefined);
+    expect(warned).toEqual(["cloud health: storage left out: RangeError"]);
+  });
+});
+
 describe("a Cloud home's memory pressure in its health report", () => {
   it("carries the last day's counts where the home watches memory, and null where it does not", () => {
     expect(world().health.report(undefined)).toMatchObject({ room: null });
     const room = { waits: 3, waitMs: 360_000, stopped: 1, killed: 2, stallMinutes: 4 };
     expect(world({ room: () => room }).health.report(undefined)).toMatchObject({ room });
+  });
+});
+
+describe("the doctor in a Cloud home's health report", () => {
+  it("carries the check ids and counts of this version's first start, and null before it ran", () => {
+    expect(world().health.report(undefined)).toMatchObject({ doctor: null });
+    writeFileSync(join(DATA_DIR, `config.json.31337.${"0b4d8f7a-3c2e-4f1a-9b6d-5e7c8a9f0d1e"}.tmp`), "{}");
+    doctorAtStart(DATA_DIR, "0.1.120", { now: () => START, pidAlive: () => false, log: () => {} });
+    const { doctor } = world().health.report(undefined);
+    expect(doctor).toMatchObject({ at: START, version: "0.1.120", fixed: expect.arrayContaining(["temp-files"]), problems: [], thisStart: true });
+    expect(JSON.stringify(doctor)).not.toContain(DATA_DIR);
   });
 });
 

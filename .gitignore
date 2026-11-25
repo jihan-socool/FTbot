@@ -16,6 +16,7 @@ electron/resources/FTbot Speech.app
 electron/resources/FTbot Recorder.app
 release
 .omb-scratch
+/shots/
 .wrangler/
 .dev.vars
 .dev.vars.*
