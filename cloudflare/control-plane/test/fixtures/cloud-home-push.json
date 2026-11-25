@@ -1,5 +1,5 @@
 {
-  "about": "Shared by FTbot (cloudflare/control-plane/test/fixtures/cloud-home-push.json) and the Admin (tests/fixtures/cloud-home-push.json), byte for byte: the bodies a Cloud home's push routes accept and refuse at the Admin and at the control plane's machine routes, and the home's request signature. Change both copies together.",
+  "about": "Shared by OpenMausBot (cloudflare/control-plane/test/fixtures/cloud-home-push.json) and the Admin (tests/fixtures/cloud-home-push.json), byte for byte: the bodies a Cloud home's push routes accept and refuse at the Admin and at the control plane's machine routes, and the home's request signature. Change both copies together.",
   "signature": {
     "secret": "home-bootstrap-secret-0123456789abcdefghijklmnopq",
     "machineId": "cm_fixture",
@@ -83,7 +83,7 @@
           "kind": "needsYou",
           "headline": "Scout needs you",
           "since": 1700000000000,
-          "link": "ftbot://chat/th_1",
+          "link": "openmausbot://chat/th_1",
           "color": "#5b8def",
           "gradient": [
             "#5b8def",
@@ -102,7 +102,7 @@
           "kind": "working",
           "headline": "Scout is working",
           "since": 1700000000000,
-          "link": "ftbot://chat/th_1",
+          "link": "openmausbot://chat/th_1",
           "color": "#5b8def",
           "gradient": [
             "#5b8def"
@@ -287,7 +287,7 @@
             "kind": "needsYou",
             "headline": "Scout needs you",
             "since": 1700000000000,
-            "link": "ftbot://chat/th_1",
+            "link": "openmausbot://chat/th_1",
             "color": "#5b8def",
             "gradient": [
               "#5b8def",
@@ -313,7 +313,7 @@
             "kind": "needsYou",
             "headline": "Scout needs you",
             "since": 1700000000000,
-            "link": "ftbot://chat/th_1",
+            "link": "openmausbot://chat/th_1",
             "color": "#5b8def",
             "gradient": [
               "#5b8def",
@@ -340,7 +340,7 @@
             "kind": "needsYou",
             "headline": "Scout needs you",
             "since": 1700000000000,
-            "link": "ftbot://chat/th_1",
+            "link": "openmausbot://chat/th_1",
             "color": "#5b8def",
             "gradient": [
               "#5b8def",

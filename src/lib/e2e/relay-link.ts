@@ -6,11 +6,11 @@ import { streamFetch, type StreamRequest } from "./http.ts";
 import { dialRelay, type PhoneSession } from "./session.ts";
 
 /** As companion/src/e2e/descriptor.ts. */
-const RELAY_HOST = /^relay[1-9][0-9]?\.ftbot\.com$/;
+const RELAY_HOST = /^relay[1-9][0-9]?\.openmausbot\.com$/;
 const MAX_RELAY_NODES = 4;
 const PUBLIC_KEY_BYTES = 65;
 const HOST_ID_BYTES = 16;
-const APP = "ftbot-web/1";
+const APP = "openmausbot-web/1";
 
 export interface RelayRoute {
   remoteStatic: Bytes;
