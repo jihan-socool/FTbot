@@ -10,7 +10,7 @@ import {
 beforeEach(() => setLocale("en"));
 
 const ids = (ctx: SettingsContext) => visiblePages(ctx).map((page) => page.id);
-const PLACE_PAGES = ["overview", "phone", "ai", "bots", "desktops", "vault", "usage", "transfer", "data"];
+const PLACE_PAGES = ["overview", "devices", "phone", "ai", "bots", "desktops", "vault", "usage", "transfer", "data"];
 const find = (query: string, ctx: SettingsContext = fullContext()) => searchSettings(query, ctx, (entry) => t(entry.labelKey), (page) => t(page.labelKey));
 const first = (query: string, ctx?: SettingsContext) => find(query, ctx)[0]?.entry;
 
@@ -25,7 +25,7 @@ const PEOPLE = {
 
 describe("the pages", () => {
   it("lists the place's pages, then Your account, then This app, in one fixed order", () => {
-    expect(ids(fullContext())).toEqual([...PLACE_PAGES, "account", "plan", "app", "general", "appearance"]);
+    expect(ids(fullContext())).toEqual([...PLACE_PAGES, "features", "account", "plan", "app", "general", "appearance"]);
   });
 
   it.each(Object.entries(PEOPLE))("keeps the same place pages, in the same order, for %s", (who, ctx) => {
@@ -34,14 +34,12 @@ describe("the pages", () => {
     expect(ids(ctx).filter((id) => PLACE_PAGES.includes(id))).toEqual(expected);
   });
 
-  // Owner decisions (Nov 11, Nov 12): Simple shows nine entries, Import & export among them; Advanced adds You and your
-  // bots, Desktops & browser, Spending, Data and General in their places.
   it.each(["local only", "This computer, with My Cloud", "My Cloud's page in the desktop window", "My Cloud in a browser (owner)"] as const)(
-    "shows Simple's nine entries for %s", (who) => {
-      expect(ids({ ...PEOPLE[who], advanced: false })).toEqual(["overview", "phone", "ai", "vault", "transfer", "account", "plan", "app", "appearance"]);
+    "shows Simple's eleven entries for %s", (who) => {
+      expect(ids({ ...PEOPLE[who], advanced: false })).toEqual(["overview", "devices", "phone", "ai", "vault", "usage", "transfer", "features", "account", "plan", "app", "appearance"]);
     });
 
-  it("is shorter in Simple: the five Advanced pages come back in Advanced, in place", () => {
+  it("is shorter in Simple: the four Advanced pages come back in Advanced, in place", () => {
     const simple = ids(fullContext({ advanced: false }));
     for (const page of ADVANCED_PAGES) expect(simple).not.toContain(page);
     expect(ids(fullContext()).filter((id) => simple.includes(id))).toEqual(simple);
@@ -68,11 +66,13 @@ describe("the pages", () => {
 
   it("finds every Advanced-only row from Simple, marked Advanced; Simple's own homes win for moved rows", () => {
     const simple = fullContext({ advanced: false });
-    for (const query of ["parallel threads", "effort", "spending", "send", "storage"]) {
+    for (const query of ["parallel threads", "effort", "send", "storage"]) {
       const hit = find(query, simple)[0];
       expect(hit, query).toBeDefined();
       expect(hit!.advanced, query).toBe(true);
     }
+    expect(find("spending", simple)[0]).toMatchObject({ entry: { page: "usage" } });
+    expect(find("spending", simple)[0]?.advanced).toBeUndefined();
     expect(find("language", simple)[0]?.entry.page).toBe("app");
     expect(find("backups", simple)[0]).toMatchObject({ entry: { page: "transfer" }, advanced: undefined });
   });

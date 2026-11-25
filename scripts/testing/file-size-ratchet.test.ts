@@ -16,35 +16,32 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 15407, // FTbot: +4 for the main-bot rule (server/ftbot-main-bot.ts)
-  "src/state/store.tsx": 3290, // FTbot: +2 to ignore the Cloud checkout
-  "electron/main.mjs": 3136, // FTbot: +1 for the MausBot Cloud switch
-  "server/store.ts": 2265,
-  "src/components/Sidebar.tsx": 1674,
-  "server/drivers/claude.ts": 2082,
-  "server/drivers/acp/core.ts": 1658,
-  "server/drivers/codex.ts": 1718,
+  "server/index.ts": 15271, // FTbot: the main-bot rule (server/ftbot-main-bot.ts)
+  "src/state/store.tsx": 3262, // FTbot: +2 to ignore the Cloud checkout
+  "electron/main.mjs": 3125, // FTbot: +1 for the MausBot Cloud switch
+  "server/store.ts": 2256,
+  "src/components/Sidebar.tsx": 1657,
+  "server/drivers/claude.ts": 2016,
+  "server/drivers/acp/core.ts": 1541,
+  "server/drivers/codex.ts": 1585,
   "server/routines.ts": 1553,
   "src/components/ComputerPanel.tsx": 1782,
-  "src/components/RoutineCalendarPage.tsx": 1622,
-  "server/config.ts": 1243,
-  "src/components/ChatView.tsx": 1275,
+  "src/components/RoutineCalendarPage.tsx": 1485,
+  "server/config.ts": 1227,
+  "src/components/ChatView.tsx": 1201,
   "server/routine-requests.ts": 1468,
-  "src/components/GroupView.tsx": 1186,
   "src/components/LocalComputerSection.tsx": 1437,
-  "src/components/CursorAvatar.tsx": 1324,
+  "src/components/CursorAvatar.tsx": 1064,
   "server/skills.ts": 1379,
-  "server/composio.ts": 1038,
   "server/vps-computer.ts": 1287,
   "scripts/mcp-server.ts": 1411,
   "server/boat.ts": 1253,
-  "server/drivers/pi.ts": 1033,
-  "server/plan-usage.ts": 1045,
-  "server/container-computer.ts": 1175,
-  "src/components/ModelPicker.tsx": 1039,
+  "server/plan-usage.ts": 1039,
+  "server/container-computer.ts": 1156,
+  "src/components/ModelPicker.tsx": 1017,
   "src/components/PhoneSetupFlow.tsx": 1088,
   "server/cli.ts": 1053,
-  "src/components/AttachmentPreview.tsx": 1034,
+  "src/components/AttachmentPreview.tsx": 1025,
   "server/meetings/meetbot.ts": 1047,
   "electron/data-dir-lease.node-test.mjs": 846, // the data-folder lease's own tests: many platform cases (Windows probes in data-dir-lease-windows.node-test.mjs)
 };

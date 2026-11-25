@@ -9,12 +9,13 @@ import { setLocale, t } from "@/lib/i18n";
 import { BUILT_IN_INSTANCE_DRIVERS } from "@/lib/built-in-instances";
 
 const server = vi.hoisted(() => ({
-  all: [] as InstanceInfo[], hidden: new Set<string>(), calls: [] as Array<{ method: string; path: string; body?: unknown }>, refuseUnhide: false,
+  all: [] as InstanceInfo[], hidden: new Set<string>(), calls: [] as Array<{ method: string; path: string; body?: unknown }>, refuseUnhide: false, refreshes: 0,
+  holdHidden: null as Promise<void> | null,
 }));
 const fixture = vi.hoisted(() => ({ state: { instances: [] as InstanceInfo[], bots: [] as Bot[], config: {} as Record<string, unknown> } }));
 vi.mock("@/state/store", async (original) => {
   const visible = () => server.all.filter((instance) => !server.hidden.has(instance.instanceId));
-  const refresh = async () => { fixture.state = { ...fixture.state, instances: visible() }; };
+  const refresh = async () => { server.refreshes++; fixture.state = { ...fixture.state, instances: visible() }; };
   return {
     ...await original<typeof import("@/state/store")>(),
     useStore: () => ({
@@ -26,6 +27,7 @@ vi.mock("@/state/store", async (original) => {
       const method = init?.method ?? "GET";
       server.calls.push({ method, path, ...(init?.body ? { body: JSON.parse(init.body) } : {}) });
       if (path === "/api/instances/hidden") {
+        await server.holdHidden;
         return { instances: server.all.filter((instance) => server.hidden.has(instance.instanceId)).map(({ instanceId, driverKind, displayName }) => ({ instanceId, driverKind, displayName })) };
       }
       const signOut = /^\/api\/instances\/([\w.-]+)\/auth\/sign-out$/.exec(path);
@@ -66,6 +68,8 @@ beforeEach(() => {
   server.hidden = new Set();
   server.calls = [];
   server.refuseUnhide = false;
+  server.refreshes = 0;
+  server.holdHidden = null;
   fixture.state = { instances: [...server.all], bots: [], config: {} };
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
@@ -97,8 +101,10 @@ describe("Settings → AI: a provider hidden from its own card", () => {
 
     expect(rows()).not.toContain("kimi");
     expect(hiddenRows()).toEqual(["kimi"]);
+    expect(server.refreshes).toBe(0);
     expect(moreCount()).toContain("More providers");
-    expect(moreCount()).toContain("1");
+    // Only hidden Kimi: the Google AI Studio row is in the main list.
+    expect(moreCount()).toMatch(/\D1$/);
     const hiddenRow = container.querySelector('[data-hidden-engine="kimi"]')!;
     expect(hiddenRow.textContent).toContain("Kimi");
     expect(hiddenRow.textContent).toContain(t("settings.ai.hiddenStatus"));
@@ -109,13 +115,14 @@ describe("Settings → AI: a provider hidden from its own card", () => {
     expect(server.calls).toContainEqual({ method: "PATCH", path: "/api/instances/kimi", body: { hidden: false } });
     expect(rows()).toContain("kimi");
     expect(hiddenRows()).toEqual([]);
+    expect(server.refreshes).toBe(0);
   });
 
   it("keeps the More providers row while every provider left in it is hidden", async () => {
     server.hidden.add("kimi");
     fixture.state = { ...fixture.state, instances: [codex] };
     await render(false);
-    expect(moreCount()).toContain("1");
+    expect(moreCount()).toMatch(/\D1$/);
     expect(hiddenRows()).toEqual([]);
     await render(true);
     expect(hiddenRows()).toEqual(["kimi"]);
@@ -130,6 +137,25 @@ describe("Settings → AI: a provider hidden from its own card", () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("provider settings are already being updated");
     expect(hiddenRows()).toEqual(["kimi"]);
     expect(rows()).not.toContain("kimi");
+  });
+
+  it.each([
+    ["is still pending", (release: { done: () => void; fail: () => void }) => release.done()],
+    ["fails", (release: { done: () => void; fail: () => void }) => release.fail()],
+  ])("drops an unhidden provider from the hidden rows before the hidden list is read again, and when that read %s", async (_name, settle) => {
+    server.hidden.add("kimi");
+    fixture.state = { ...fixture.state, instances: [codex] };
+    await render();
+    expect(hiddenRows()).toEqual(["kimi"]);
+    const release = { done: () => {}, fail: () => {} };
+    server.holdHidden = new Promise<void>((resolve, reject) => { release.done = resolve; release.fail = () => reject(new Error("offline")); });
+    server.holdHidden.catch(() => {});
+    await click(container.querySelector('[data-unhide-engine="kimi"]'));
+    expect(rows().filter((id) => id === "kimi")).toEqual(["kimi"]);
+    expect(hiddenRows()).toEqual([]);
+    await act(async () => { settle(release); await server.holdHidden!.catch(() => {}); });
+    expect(rows().filter((id) => id === "kimi")).toEqual(["kimi"]);
+    expect(hiddenRows()).toEqual([]);
   });
 
   it("signs a connected CLI out from its card without hiding it", async () => {
@@ -177,6 +203,21 @@ describe("Settings → AI: Sign out on other CLI sign-ins", () => {
     await click([...document.body.querySelectorAll("button")].filter((button) => button.textContent === "Sign out").at(-1));
     expect(server.calls).toContainEqual({ method: "POST", path: `/api/instances/${engine.instanceId}/auth/sign-out` });
     expect(server.calls.some((call) => call.method === "PATCH")).toBe(false);
+  });
+
+  // The native CLI keeps each account's sign-in in its own profile (antigravity-acp.ts), so signing out ends that one alone.
+  it.each([["antigravity", true], ["agy", false]] as const)("asks the usual question before signing out an account on %s (native CLI: %s)", async (cli, native) => {
+    server.all = [codex, {
+      instanceId: "antigravity", driverKind: "antigravityAgent", displayName: "Antigravity", cli,
+      snapshot: { state: "available", authenticated: true, ...(native ? { nativeCli: true as const } : {}) }, models: { default: "gemini", options: [] },
+      authentication: { method: "callback-url", signOut: true },
+    }];
+    fixture.state = { ...fixture.state, instances: [...server.all] };
+    await render();
+    await click(rowButton("antigravity"));
+    await click([...container.querySelectorAll('[data-engine-card="antigravity"] button')].find((button) => button.textContent === "Sign out"));
+    expect(document.body.textContent).toContain("Bots that use this account need it signed in again before their next task.");
+    expect(document.body.textContent).not.toContain("keeps one sign-in");
   });
 
   it("offers no Sign out to an engine an API key signs in", async () => {
@@ -260,6 +301,7 @@ describe("Settings → AI → ChatGPT: the built-in account rows can be hidden",
     expect(server.calls).toContainEqual({ method: "PATCH", path: "/api/instances/chatgpt", body: { hidden: false } });
     expect(accounts()).toEqual(["codex", "chatgpt", "chatgpt-work"]);
     expect(hiddenRows()).toEqual([]);
+    expect(server.refreshes).toBe(0);
   });
 
   it("offers Hide on the Codex row too", async () => {

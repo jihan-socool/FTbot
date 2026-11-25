@@ -10,7 +10,12 @@ const task = (threadId: string, title: string, openedBy?: unknown) => ({ threadI
 const handoff = { id: "h-42", rootId: "h-1", parentId: "h-1", threadId: "t-ops-new", botId: "bot-ops", status: "queued" } as HandoffView;
 const tasks: Record<string, TaskRecord[]> = {
   "bot-lead": [task("t-lead", "Lead main")],
-  "bot-ops": [task("t-ops-busy", "Weekly report"), task("t-ops-new", "Export CSV", { botId: "bot-lead", name: "Lead", at: 5 })],
+  "bot-ops": [
+    task("t-ops-busy", "Weekly report"),
+    task("t-ops-new", "Export CSV", { botId: "bot-lead", name: "Lead", at: 5 }),
+    { ...task("t-ops-closed", "Closed question"), activity: "waiting-on-you", closedBy: { botId: ops.id, name: ops.name, at: 2 } },
+    { ...task("t-ops-open", "Open question"), activity: "waiting-on-you" },
+  ],
 };
 
 async function listThreads(from: BotRecord) {
@@ -23,7 +28,7 @@ async function listThreads(from: BotRecord) {
     readBody: async () => ({}),
   });
   let body: { threads: Array<Record<string, unknown>> } | undefined;
-  await route({ res: {}, path: "/api/internal/threads", method: "GET", json: (_res: unknown, _status: number, value: never) => { body = value; } } as never);
+  await route({ res: {}, url: new URL("http://x/api/internal/threads"), path: "/api/internal/threads", method: "GET", json: (_res: unknown, _status: number, value: never) => { body = value; } } as never);
   return body!.threads;
 }
 
@@ -39,6 +44,40 @@ describe("list_threads on a queued handoff", () => {
     const running = rows.find((thread) => thread.threadId === "t-ops-busy");
     expect(running).toMatchObject({ state: "running" });
     expect(running).not.toHaveProperty("waiting");
+  });
+
+  it("reports a closed thread as closed even when its activity still says it waits on the person", async () => {
+    const rows = await listThreads(ops);
+    expect(rows.find((thread) => thread.threadId === "t-ops-closed")).toMatchObject({ state: "closed" });
+    expect(rows.find((thread) => thread.threadId === "t-ops-open")).toMatchObject({ state: "waiting-on-you" });
+  });
+});
+
+describe("list_threads past the first 100", () => {
+  async function page(query: string) {
+    const many = Array.from({ length: 130 }, (_, index) => task(`t-${index}`, `Event ${index}`, undefined));
+    many.forEach((row, index) => { row.createdAt = index; });
+    const route = createInternalThreadRoutes({
+      store: { bot: () => undefined, bots: [lead], tasks: (id: string) => id === lead.id ? many : [] } as never,
+      coordinator: { awaitingAnswer: () => false, parkedDirect: () => undefined, activeDirect: () => undefined, active: () => [] } as never,
+      from: lead, fromThreadId: "t-own", ownsThread: () => true, shown: () => true,
+      threadBusy: () => false, queuedThreadPosition: () => null, queuedReason: () => "", readBody: async () => ({}),
+    });
+    let body: { threads: Array<{ threadId: string }>; total: number; page: number; pageSize: number } | undefined;
+    await route({ res: {}, url: new URL(`http://x/api/internal/threads${query}`), path: "/api/internal/threads", method: "GET",
+      json: (_res: unknown, _status: number, value: never) => { body = value; } } as never);
+    return body!;
+  }
+
+  it("gives the newest 100 first and the older ones on page 2, with the total", async () => {
+    const first = await page("");
+    expect(first).toMatchObject({ total: 130, page: 1, pageSize: 100 });
+    expect(first.threads).toHaveLength(100);
+    expect(first.threads[0]!.threadId).toBe("t-129");
+    const second = await page("?page=2");
+    expect(second).toMatchObject({ total: 130, page: 2 });
+    expect(second.threads.map((thread) => thread.threadId)).toEqual(Array.from({ length: 30 }, (_, index) => `t-${29 - index}`));
+    expect((await page("?page=0")).page).toBe(1);
   });
 });
 

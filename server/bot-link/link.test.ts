@@ -1,7 +1,7 @@
 // Two places, each with a real coordinator over its own data folder, joined by the real routes and the real dialer over
 // HTTP on this machine: "the computer" asks, "the Cloud" answers. Only the engines are fake.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -9,9 +9,11 @@ import { extname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createCoordinator, type CoordinateBotsCall, type Coordinator, type CoordinatorHost, type HandoffView, type HostTurnResult } from "../coordinator.ts";
+import { callTool } from "../drivers/agents-call.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import type { SessionRecord } from "../sessions.ts";
 import type { PassedFile } from "../host/handoff-files.ts";
+import { readBody } from "../harness/http.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { createDialer } from "./dial.ts";
 import { createBotLink, SPOOL_KEEP_MS, type BotLink } from "./link.ts";
@@ -41,9 +43,12 @@ const call = (botIds: string[], message: string, more: Partial<CoordinateBotsCal
 function place(label: string, bots: Bot[], version?: number) {
   const dir = mkdtempSync(join(tmpdir(), `bot-link-${label}-`));
   const threads = new Set<string>();
+  /** Each work thread this place opened for a far bot: the job it was opened with names it. */
+  const opened: Array<{ threadId: string; title: string; from: string; brief: string }> = [];
   const runs: Array<{ botId: string; threadId: string; text: string; resumed: boolean; requester: string; origin: unknown }> = [];
   const sent: Array<{ recipient: string; threadId: string; roomId?: string }> = [];
   const results: Array<{ thread: string; name: string; status: string; result: string }> = [];
+  const resultListeners = new Set<() => void>();
   const requests: string[] = [];
   const issued = new Map<string, string>();
   /** The attachment store and the hand-off file ledger, as handoff-files.ts keeps them. */
@@ -84,7 +89,7 @@ function place(label: string, bots: Bot[], version?: number) {
     patchGroup: (id: string, patch: { memberIds?: string[] }) => { const group = groups.find((one) => one.id === id); if (group && patch.memberIds) group.memberIds = patch.memberIds; return group ?? null; },
   };
   let coordinator!: Coordinator, link!: BotLink, dialer!: ReturnType<typeof createDialer>, ticker: NodeJS.Timeout | undefined, http: Server | undefined;
-  let opened = 0, port = 0, generation = 0, skew = 0, minted = 0, directoryChanges = 0;
+  let openedCount = 0, port = 0, generation = 0, skew = 0, minted = 0, directoryChanges = 0;
   const sockets = new Set<import("node:net").Socket>();
 
   function boot(options: { limits?: { queueMs?: number; stallMs?: number } } = {}) {
@@ -95,10 +100,10 @@ function place(label: string, bots: Bot[], version?: number) {
     link = createBotLink({
       rooms, directoryChanged: () => { directoryChanges += 1; rooms.sync(); },
       dataDir: dir, coordinator: () => coordinator, bots: () => bots, bot: (id) => bots.find((bot) => bot.id === id), level: () => "full",
-      openThread: (bot) => { const id = `${bot.id}-work-${++opened}`; threads.add(id); return id; },
+      openThread: (bot, title, opener, brief) => { const id = `${bot.id}-work-${++openedCount}`; threads.add(id); opened.push({ threadId: id, title, from: opener.name, brief }); return id; },
       hasThread: (_botId, threadId) => threads.has(threadId), personName: () => "Sam",
       sentRow: (input) => { sent.push({ recipient: input.recipient.name, threadId: input.threadId, ...(input.roomId ? { roomId: input.roomId } : {}) }); },
-      resultRow: (parent, child, name) => { results.push({ thread: parent.threadId, name, status: child.status, result: child.result }); },
+      resultRow: (parent, child, name) => { results.push({ thread: parent.threadId, name, status: child.status, result: child.result }); for (const listener of resultListeners) listener(); },
       kick: () => { queueMicrotask(() => { try { coordinator.tick(); } catch { /* closed */ } }); },
       revoke: (sessionId) => { for (const [token, id] of issued) if (id === sessionId) issued.delete(token); },
       now: () => Date.now() + skew,
@@ -138,14 +143,13 @@ function place(label: string, bots: Bot[], version?: number) {
       revoke: (sessionId) => { for (const [token, id] of issued) if (id === sessionId) issued.delete(token); },
     });
     const json = (res: ServerResponse, status: number, body: unknown) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
-    const readBody = async (req: IncomingMessage) => { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk as Buffer); return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}; };
     http = createServer((req, res) => {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       requests.push(`${req.method} ${url.pathname}${url.searchParams.has("probe") ? "?probe" : ""}`);
       const fails = failing.findIndex((one) => one.match.test(requests.at(-1)!));
       if (fails >= 0) { const status = failing.splice(fails, 1)[0]!.status; req.resume(); json(res, status, { error: "try again" }); return; }
       void routes({ req, res, url, path: url.pathname, method: req.method ?? "GET", auth: auth(req), json: json as never, readBody: readBody as never })
-        .catch((error) => { if (!res.headersSent) json(res, 500, { error: String(error) }); });
+        .catch((error) => { if (!res.headersSent) json(res, (error as { status?: number }).status ?? 500, { error: String(error) }); });
     });
     http.on("connection", (socket) => { sockets.add(socket); socket.on("close", () => sockets.delete(socket)); });
     await new Promise<void>((resolve) => http!.listen(at, "127.0.0.1", resolve));
@@ -177,7 +181,13 @@ function place(label: string, bots: Bot[], version?: number) {
   }
 
   const api = {
-    dir, bots, runs, sent, results, requests, boot, listen, unplug, shutdown, handOff, keep, ledger,
+    dir, bots, runs, sent, results, requests, opened, boot, listen, unplug, shutdown, handOff, keep, ledger,
+    nextResult(): Promise<void> {
+      return new Promise((resolve) => {
+        const listener = () => { resultListeners.delete(listener); resolve(); };
+        resultListeners.add(listener);
+      });
+    },
     failOnce: (match: RegExp, status = 500) => { failing.push({ match, status }); },
     /** What an assignment here carries one way: who it is from and each file's name and words. */
     carries: (id: string, way: "sent" | "returned") => { const batch = ledger.get(`${id}:${way}`); return batch ? { from: batch.from.name, files: batch.files.map((file) => [file.name, readFileSync(file.path, "utf8")]) } : undefined; },
@@ -289,6 +299,78 @@ describe("the link between a computer and its Cloud", () => {
     expect(computer.results[0]).toMatchObject({ name: "Atlas (My Cloud)", status: "completed", result: "shared did: Which of us is which?" });
   });
 
+  it("a bot of another place named after a bot's id here in another case never takes that bot's work", async () => {
+    const { computer, cloud } = await two();
+    cloud.bots.push({ id: "cloud-shadow", name: "SHARED" });
+    cloud.link.botsChanged();
+    await until(() => computer.link.agents().some((bot) => bot.name === "SHARED"), "the computer hears of the Cloud's SHARED");
+    expect(computer.link.resolve("SHARED")).toBeUndefined();
+    expect(computer.link.resolve("Shared")).toBeUndefined();
+    let asked: CoordinateBotsCall | undefined;
+    const { receipts, answer } = await computer.handOff("local-writer", call(["SHARED"], "Which of us is which?"), async (input) => {
+      asked = input;
+      return { status: 200, body: { receipts: [{ botId: "shared", outcome: "queued", detail: "here" }], message: "Sent to Scout." } };
+    });
+    expect(asked?.botIds).toEqual(["SHARED"]);
+    expect(answer.status).toBe(200);
+    expect(receipts).toEqual([{ botId: "shared", outcome: "queued", detail: "here" }]);
+    expect(cloud.runs).toEqual([]);
+  });
+
+  it("a bot of another place named after the first eight characters of a bot's id here never takes that bot's work", async () => {
+    const { computer, cloud } = await two();
+    cloud.bots.push({ id: "cloud-prefix", name: "local-wr" });
+    cloud.link.botsChanged();
+    await until(() => computer.link.agents().some((bot) => bot.name === "local-wr"), "the computer hears of the Cloud's local-wr");
+    expect(computer.link.resolve("local-wr")).toBeUndefined();
+    expect(computer.link.resolve("LOCAL-WR")).toBeUndefined();
+    let asked: CoordinateBotsCall | undefined;
+    const { receipts, answer } = await computer.handOff("shared", call(["local-wr"], "Draft the summary"), async (input) => {
+      asked = input;
+      return { status: 200, body: { receipts: [{ botId: "local-writer", outcome: "queued", detail: "here" }], message: "Sent to Writer." } };
+    });
+    expect(asked?.botIds).toEqual(["local-wr"]);
+    expect(answer.status).toBe(200);
+    expect(receipts).toEqual([{ botId: "local-writer", outcome: "queued", detail: "here" }]);
+    expect(cloud.runs).toEqual([]);
+  });
+
+  it("a bot of another place named after an id here stays reachable by its address, and a name no bot here has still crosses", async () => {
+    const { computer, cloud } = await two();
+    cloud.bots.push({ id: "cloud-shadow", name: "SHARED" }, { id: "cloud-prefix", name: "local-wr" });
+    cloud.link.botsChanged();
+    await until(() => computer.link.agents().some((bot) => bot.name === "local-wr"), "the computer hears of both");
+    expect(computer.link.resolve(onCloud("cloud-shadow"))?.bot.name).toBe("SHARED");
+    expect(computer.link.resolve(onCloud("cloud-prefix"))?.bot.name).toBe("local-wr");
+    expect(computer.link.resolve("Analyst")?.bot.id).toBe("cloud-analyst");
+    const { receipts: byAddress } = await computer.handOff("shared", call([onCloud("cloud-prefix")], "Draft the summary"));
+    expect(byAddress[0]).toMatchObject({ botId: onCloud("cloud-prefix"), outcome: "queued" });
+    await until(() => cloud.runs.some((run) => run.botId === "cloud-prefix"), "the Cloud's local-wr works");
+  });
+
+  it("a bot here whose id is shaped like another place's address keeps its work, and never becomes that address", async () => {
+    const { computer, cloud } = await two();
+    // The Cloud's own Atlas answers to exactly this address here; this place is then given a bot of its own carrying it.
+    const shaped = onCloud("shared");
+    computer.bots.push({ id: shaped, name: "Importer" });
+    computer.link.botsChanged();
+    // A bot here answers to its own id first, in any case: the address never names the Cloud's Atlas again.
+    expect(computer.link.resolve(shaped)).toBeUndefined();
+    expect(computer.link.resolve(shaped.toUpperCase())).toBeUndefined();
+    // Every other address resolves as it did.
+    expect(computer.link.resolve(onCloud("cloud-analyst"))?.bot.id).toBe("cloud-analyst");
+    let asked: CoordinateBotsCall | undefined;
+    const { receipts, answer } = await computer.handOff("shared", call([shaped], "Draft the summary"), async (input) => {
+      asked = input;
+      return { status: 200, body: { receipts: [{ botId: shaped, outcome: "queued", detail: "here" }], message: "Sent to Importer." } };
+    });
+    expect(asked?.botIds).toEqual([shaped]);
+    expect(answer.status).toBe(200);
+    expect(receipts).toEqual([{ botId: shaped, outcome: "queued", detail: "here" }]);
+    // Nothing crossed: the brief and its files stayed with the bot here.
+    expect(cloud.runs).toEqual([]);
+  });
+
   it("work goes from the computer to the Cloud and its result resumes the requester once, as the person's own work", async () => {
     const { computer, cloud } = await two();
     const { receipts, answer } = await computer.handOff("local-writer", call(["Analyst"], "Count the orders", { doneWhen: "a number" }));
@@ -307,6 +389,27 @@ describe("the link between a computer and its Cloud", () => {
     await computer.handOff("local-writer", call(["Analyst"], "Now the refunds"));
     await until(() => computer.results.length === 2, "the second result is back");
     expect(cloud.runs.filter((run) => run.botId === "cloud-analyst").map((run) => run.threadId)).toEqual(["cloud-analyst-work-1", "cloud-analyst-work-1"]);
+    expect(cloud.opened).toEqual([{ threadId: "cloud-analyst-work-1", title: "@Writer · work", from: "Writer", brief: "Count the orders" }]);
+  });
+
+  it("a call that got one instruction-only local refusal and one real refusal from the other place fails, and says why", async () => {
+    const { computer } = await two();
+    const nothingLeft = "nothing of Writer's waits on an answer as a1: it was answered or its work ended. Send it without answers if it still needs doing";
+    const localBody = { receipts: [{ botId: "local-writer", botName: "Writer", outcome: "failed", detail: nothingLeft, instructionOnly: true }], error: nothingLeft, instructionOnly: true };
+    // "Analyst" lives in the Cloud, where an answer to a question cannot go; "Writer" is here, where the answer named is out of date.
+    const { answer } = await computer.handOff("local-writer", call(["Analyst", "Writer"], "Send the numbers.", { answers: "a1" }),
+      async () => ({ status: 409, body: localBody }));
+    expect(answer.status).toBe(409);
+    expect(answer.body.instructionOnly, "one part's instruction to finish is not the whole call's verdict").toBeUndefined();
+    expect(String(answer.body.error)).toContain("That does not reach My Cloud yet");
+    expect(String(answer.body.error)).toContain(nothingLeft);
+
+    const tool = await callTool("coordinate_bots", { bot_ids: ["Analyst", "Writer"], message: "Send the numbers.", answers: "a1" },
+      { botId: "local-writer", threadId: "local-writer-chat", externalRuntime: false, sharedComputers: false,
+        client: { apiResponse: async () => ({ ok: false, status: answer.status, body: answer.body }), api: async () => ({}) } });
+    expect(tool.isError).toBe(true);
+    expect(tool.text).toContain("That does not reach My Cloud yet");
+    expect(tool.text).toContain(nothingLeft);
   });
 
   it("work goes from the Cloud to the computer over the same link, and a one-way notice returns nothing", async () => {
@@ -557,9 +660,9 @@ describe("the link between a computer and its Cloud", () => {
     await until(() => computer.link.online(), "the link is back");
   });
 
-  it("more results than one exchange carries go a part at a time, and all arrive", async () => {
+  it.each(["x", "界", "🚀"])("more %j results than one exchange carries go a part at a time, and all arrive", async (character) => {
     const { computer, cloud } = await two();
-    const words = "x".repeat(11_000);
+    const words = character.repeat(11_000);
     cloud.engine(async (node) => ({ ok: true, text: `${node.text}:${words}` }));
     await computer.dialer.stop();
     await until(() => !cloud.link.online(), "the link is down");
@@ -570,7 +673,7 @@ describe("the link between a computer and its Cloud", () => {
     cloud.link.sessionStarted(COMPUTER);
     const part = cloud.link.outgoing(COMPUTER, 0);
     expect(part.length).toBeLessThan(ids.length);
-    expect(JSON.stringify(part).length).toBeLessThan(EXCHANGE_BYTES + 20_000);
+    expect(Buffer.byteLength(JSON.stringify(part), "utf8")).toBeLessThan(EXCHANGE_BYTES + 20_000);
     const taken: string[] = [];
     for (let ack = 0, rounds = 0; rounds < 30; rounds += 1) {
       const next = cloud.link.outgoing(COMPUTER, ack);
@@ -581,6 +684,30 @@ describe("the link between a computer and its Cloud", () => {
     expect(taken.sort()).toEqual([...ids].sort());
     computer.dialer.start();
     await until(() => cloud.link.outgoing(COMPUTER, 0).every((entry) => entry.frame.t !== "result") && cloud.link.online(), "the computer took them all", 15_000);
+  }, 60_000);
+
+  it("queued multibyte results reach the Cloud through its HTTP body limit", async () => {
+    const { computer, cloud } = await two();
+    const words = "界".repeat(11_000);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    computer.engine(async () => { await gate; return { ok: true, text: words }; });
+    const requesters = Array.from({ length: 140 }, (_, index) => ({ id: `requester-${index}`, name: `Requester ${index}` }));
+    cloud.bots.push(...requesters);
+    cloud.link.botsChanged();
+    for (const requester of requesters) {
+      const { receipts } = await cloud.handOff(requester.id, call([onComputer("local-writer")], "Send the report"));
+      expect(receipts[0]?.outcome).toBe("queued");
+    }
+    await until(() => computer.coordinator.all().filter((node) => node.botId === "local-writer").length === requesters.length, "all assignments reach the computer", 30_000);
+    await computer.dialer.stop();
+    release();
+    await until(() => computer.coordinator.all().filter((node) => node.botId === "local-writer" && node.status === "completed").length === requesters.length, "all reports finish while disconnected", 30_000);
+    computer.dialer.start();
+    await until(() => cloud.results.length === requesters.length, "all reports cross the HTTP body limit", 30_000);
+    expect(cloud.results.every((result) => result.status === "completed" && result.result === words)).toBe(true);
+    expect(cloud.results.map((result) => result.thread).sort()).toEqual(requesters.map((requester) => `${requester.id}-chat`).sort());
+    await until(() => computer.link.outgoing(CLOUD, 0).every((entry) => entry.frame.t !== "result"), "all delivered reports are acknowledged", 15_000);
   }, 60_000);
 
   it("a requester cut by two restarts fails the hand-off and stops the work where it runs", async () => {
@@ -624,6 +751,23 @@ describe("the link between a computer and its Cloud", () => {
     expect(cloud.carries(receipts[0]!.requestId!, "returned")).toEqual({ from: "Writer", files: [["draft.md", "# Summary"]] });
     expect(cloud.spooled()).toEqual([]);
     expect(computer.spooled()).toEqual([]);
+  });
+
+  it("returns a completed report when its local attachment was removed before upload", async () => {
+    const { computer, cloud } = await two();
+    computer.engine(async (node) => {
+      computer.attach(node.id, "report.txt", "Attachment contents");
+      const attachment = computer.ledger.get(`${node.id}:returned`)!.files[0]!;
+      rmSync(attachment.path);
+      return { ok: true, text: "Completed report" };
+    });
+    const arrived = cloud.nextResult();
+    const { receipts } = await cloud.handOff("cloud-analyst", call(["Writer"], "Prepare the report"));
+    await arrived;
+    expect(cloud.results).toHaveLength(1);
+    expect(cloud.results[0]).toMatchObject({ status: "completed", result: "Completed report\n\n(The files it attached could not be sent across.)" });
+    expect(cloud.carries(receipts[0]!.requestId!, "returned")).toBeUndefined();
+    expect(cloud.requests.filter((request) => request === "GET /api/bot-link/file?probe")).toHaveLength(1);
   });
 
   it("files wait for a computer that is off, and a file the working side will not take ends the hand-off with the reason", async () => {
