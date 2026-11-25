@@ -6,6 +6,7 @@ import bundledReleasesJson from "../../announcements/releases.json" with { type:
 import { parseReleaseFeed, RELEASES_URL, type ReleaseEntry, type ReleaseFeed } from "../../shared/release-notes.ts";
 import { DATA_DIR } from "../config.ts";
 import { RemoteJsonFile, type RemoteFileOptions } from "./remote-file.ts";
+import { ftbotFeedEnv } from "../ftbot-announcements.ts";
 
 /** Twenty releases' notes come to about 60 KB. */
 export const RELEASES_MAX_BYTES = 128 * 1024;
@@ -47,5 +48,5 @@ export class ReleaseNotesStore extends RemoteJsonFile<ReleaseFeed> {
 let store: ReleaseNotesStore | undefined;
 
 export function releaseNotesStore(): ReleaseNotesStore {
-  return store ??= new ReleaseNotesStore({ dataDir: DATA_DIR });
+  return store ??= new ReleaseNotesStore({ dataDir: DATA_DIR, env: ftbotFeedEnv() });
 }

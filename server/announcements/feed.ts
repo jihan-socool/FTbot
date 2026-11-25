@@ -9,6 +9,7 @@ import {
   ANNOUNCEMENTS_DISABLE_ENV, REMOTE_FILE_FETCH_TIMEOUT_MS, REMOTE_FILE_FIRST_WAIT_MS, REMOTE_FILE_RETRY_MS, REMOTE_FILE_TTL_MS, RemoteJsonFile,
   type RemoteFileOptions,
 } from "./remote-file.ts";
+import { ftbotFeedEnv } from "../ftbot-announcements.ts";
 
 export { ANNOUNCEMENTS_DISABLE_ENV };
 export const ANNOUNCEMENTS_TTL_MS = REMOTE_FILE_TTL_MS;
@@ -61,5 +62,5 @@ export class AnnouncementStore extends RemoteJsonFile<AnnouncementFeed> {
 let store: AnnouncementStore | undefined;
 
 export function announcementStore(): AnnouncementStore {
-  return store ??= new AnnouncementStore({ dataDir: DATA_DIR });
+  return store ??= new AnnouncementStore({ dataDir: DATA_DIR, env: ftbotFeedEnv() });
 }

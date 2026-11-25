@@ -1698,7 +1698,7 @@ describe("cards from the announcements file", () => {
     expect(await relaunch()).not.toContain("Title of branded");
   });
 
-  describe("a sponsor's card", () => {
+  describe.skipIf(!FTBOT_PAID_OFFERS)("a sponsor's card", () => {
     const sponsor = (id: string) => card(id, { kind: "sponsor", label: "Sponsor" });
 
     it("one a week: a second sponsor waits while a product card may show", async () => {

@@ -227,7 +227,7 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     facts: { nowMs: now(), version: appVersion(), platform: announcementPlatform(globalThis.navigator?.userAgent), surface, plan: announcementPlan(surface, view, team),
       people: usedBefore(state.bots) ? "existing" : "new", locale: activeLocale(), conditions: announcementConditions(state) },
     seen: seenRecord, branded, admin: viewer?.canSave !== false,
-    sponsors: !providersRestricted(state.config?.managedPolicy) && sponsorsHere,
+    sponsors: FTBOT_PAID_OFFERS && !providersRestricted(state.config?.managedPolicy) && sponsorsHere,
   });
   const announcement = picked && picked !== "wait" ? picked : null;
   // Teams: everyone once, ahead of every other notice, on every page but a branded build's or an organization's desktop;
