@@ -285,8 +285,8 @@ function registryComponent(pkg, cargoLockPackages) {
         : []),
     ],
     properties: [
-      { name: "ftbot:cargo:package-id", value: pkg.id },
-      { name: "ftbot:cargo:crate-sha256", value: locked.checksum },
+      { name: "openmausbot:cargo:package-id", value: pkg.id },
+      { name: "openmausbot:cargo:crate-sha256", value: locked.checksum },
     ],
   };
 }
@@ -328,10 +328,10 @@ function interComponent() {
     ],
     properties: [
       {
-        name: "ftbot:font:name-table-version",
+        name: "openmausbot:font:name-table-version",
         value: "Version 4.001;git-66647c0bb",
       },
-      { name: "ftbot:font:embedded-sha256", value: INTER_FONT_SHA256 },
+      { name: "openmausbot:font:embedded-sha256", value: INTER_FONT_SHA256 },
     ],
   };
 }
@@ -629,24 +629,24 @@ const bom = {
         },
       ],
       properties: [
-        { name: "ftbot:archive:sha256", value: ARCHIVE_SHA256 },
-        { name: "ftbot:cargo-lock:sha256", value: CARGO_LOCK_SHA256 },
-        { name: "ftbot:target", value: "x86_64-unknown-linux-gnu" },
-        { name: "ftbot:feature", value: "cua-driver/portal-input" },
+        { name: "openmausbot:archive:sha256", value: ARCHIVE_SHA256 },
+        { name: "openmausbot:cargo-lock:sha256", value: CARGO_LOCK_SHA256 },
+        { name: "openmausbot:target", value: "x86_64-unknown-linux-gnu" },
+        { name: "openmausbot:feature", value: "cua-driver/portal-input" },
         {
-          name: "ftbot:registry-component-count",
+          name: "openmausbot:registry-component-count",
           value: String(EXPECTED_REGISTRY_UNION_COUNT),
         },
         {
-          name: "ftbot:trycua-component-count",
+          name: "openmausbot:trycua-component-count",
           value: String(TRYCUA_COMPONENTS.length),
         },
         {
-          name: "ftbot:file:cua-driver:sha256",
+          name: "openmausbot:file:cua-driver:sha256",
           value: DRIVER_SHA256,
         },
         {
-          name: "ftbot:file:cua-cursor-theme:sha256",
+          name: "openmausbot:file:cua-cursor-theme:sha256",
           value: CURSOR_THEME_SHA256,
         },
       ],
